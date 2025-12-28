@@ -3,23 +3,109 @@
 #include <SFML/Graphics.hpp>
 #include <memory>
 #include <vector>
+#include <mutex>
+#include <deque>
+#include <chrono>
+
+// Типы визуальных эффектов
+enum class EffectType {
+    Attack,      // Красная вспышка
+    Kill,        // Взрыв частиц
+    Escape,      // Зелёные следы
+    Heal         // Голубое сияние
+};
+
+// Структура для одного эффекта
+struct VisualEffect {
+    EffectType type;
+    float x, y;
+    std::chrono::steady_clock::time_point start_time;
+    float duration_ms;
+    sf::Color color;
+    
+    VisualEffect(EffectType t, float x_, float y_, float dur_ms, sf::Color c)
+        : type(t), x(x_), y(y_), duration_ms(dur_ms), color(c) {
+        start_time = std::chrono::steady_clock::now();
+    }
+    
+    // Проверить, закончился ли эффект
+    bool isExpired() const {
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
+        return elapsed >= duration_ms;
+    }
+    
+    // Получить прогресс анимации (0.0 - 1.0)
+    float getProgress() const {
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
+        return std::min(1.0f, static_cast<float>(elapsed) / duration_ms);
+    }
+};
+
+// Структура для частицы
+struct Particle {
+    float x, y;
+    float vx, vy;  // Скорость
+    sf::Color color;
+    float lifetime;
+    float max_lifetime;
+    
+    Particle(float x_, float y_, float vx_, float vy_, sf::Color c, float life)
+        : x(x_), y(y_), vx(vx_), vy(vy_), color(c), lifetime(life), max_lifetime(life) {}
+    
+    void update(float dt) {
+        x += vx * dt;
+        y += vy * dt;
+        lifetime -= dt;
+    }
+    
+    bool isAlive() const {
+        return lifetime > 0;
+    }
+    
+    float getAlpha() const {
+        return lifetime / max_lifetime;
+    }
+};
 
 class VisualObserver : public IInteractionObserver {
 private:
-    // Store the last interaction message
+    VisualObserver() = default;
+    
     std::string lastInteractionMessage;
+    mutable std::mutex message_mutex;
+    
+    // Список активных эффектов
+    std::deque<VisualEffect> active_effects;
+    std::deque<Particle> particles;
+    mutable std::mutex effects_mutex;
     
 public:
-    VisualObserver();
+    static std::shared_ptr<IInteractionObserver> get();
+    
     ~VisualObserver() = default;
     
-    // IInteractionObserver implementation
     void on_interaction(const std::shared_ptr<NPC>& actor,
                        const std::shared_ptr<NPC>& target,
                        InteractionOutcome outcome) override;
     
-    // Get the last interaction message
     std::string getLastInteractionMessage() const;
+    
+    // Добавить визуальный эффект
+    void addEffect(EffectType type, float x, float y, float duration_ms, sf::Color color);
+    
+    // Добавить частицы
+    void addParticles(float x, float y, int count, sf::Color color);
+    
+    // Получить все активные эффекты
+    std::deque<VisualEffect> getActiveEffects();
+    
+    // Получить все активные частицы
+    std::deque<Particle> getActiveParticles();
+    
+    // Обновить частицы
+    void updateParticles(float dt);
 };
 
 class VisualWrapper {
@@ -27,51 +113,49 @@ private:
     sf::RenderWindow window;
     sf::Font font;
     sf::Clock clock;
+    sf::Clock frameClock;  // Для delta time
     
-    // NPC sprites and textures
     sf::Texture orcTexture;
     sf::Texture squirrelTexture;
     sf::Texture bearTexture;
     sf::Texture druidTexture;
     sf::Texture backgroundTexture;
     
-    // Text for displaying interaction messages
     sf::Text interactionText;
     sf::RectangleShape interactionBox;
     
-    // Store NPCs for rendering
+    // Счётчик статистики
+    sf::Text statsText;
+    sf::RectangleShape statsBox;
+    
     std::vector<std::shared_ptr<NPC>>* npcs;
     mutable std::mutex npcsMutex;
     
-    // Interaction message variables
     std::string lastInteractionMessage;
     sf::Time messageDisplayTime;
     
-    // Create default textures if SFML assets aren't available
     void createDefaultTextures();
-    
-    // Get color based on NPC type
     sf::Color getColorForNPC(NPCType type) const;
+    
+    // Рендеринг эффектов
+    void renderEffects(const std::deque<VisualEffect>& effects, float scaleX, float scaleY);
+    void renderParticles(const std::deque<Particle>& particles, float scaleX, float scaleY);
+    
+    // Отрисовка конкретного эффекта
+    void drawAttackEffect(float x, float y, float progress, sf::Color color);
+    void drawKillEffect(float x, float y, float progress);
+    void drawEscapeEffect(float x, float y, float progress);
+    void drawHealEffect(float x, float y, float progress);
 
 public:
     VisualWrapper(int width = 800, int height = 600);
     ~VisualWrapper() = default;
     
-    // Initialize the visual wrapper
     bool initialize();
-    
-    // Set the NPCs to be displayed
     void setNPCs(std::vector<std::shared_ptr<NPC>>& npcs_list);
-    
-    // Set the interaction message
     void setInteractionMessage(const std::string& message);
-    
-    // Main render loop
     void run();
-    
-    // Handle events
     void handleEvents();
-    
-    // Render all elements
     void render();
+    bool isWindowOpen() const;
 };

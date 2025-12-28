@@ -18,14 +18,13 @@ using namespace std::chrono_literals;
 std::mutex print_mutex;
 
 // ---------------- Константы FileObserver ----------------
-const int FileObserver::W1 = 18; // имя атакующего
-const int FileObserver::W2 = 10; // тип атакующего
-const int FileObserver::WP = 11; // позиция атакующего
-const int FileObserver::WA = 10; // действие
-const int FileObserver::W3 = 18; // имя защищающегося
-const int FileObserver::W4 = 10; // тип защищающегося
-const int FileObserver::WP2 = 9; // позиция защищающегося
-
+const int FileObserver::W1 = 18;
+const int FileObserver::W2 = 10;
+const int FileObserver::WP = 11;
+const int FileObserver::WA = 10;
+const int FileObserver::W3 = 18;
+const int FileObserver::W4 = 10;
+const int FileObserver::WP2 = 9;
 
 // ---------------- Наблюдатели ----------------
 std::shared_ptr<IInteractionObserver> ConsoleObserver::get() {
@@ -281,31 +280,58 @@ void InteractionManager::operator()() {
             auto t = ev->target;
 
             if (!a || !t) {
-                std::this_thread::sleep_for(100ms);
+                std::this_thread::sleep_for(1ms);
                 continue;
             }
 
-            if (a->is_alive() && t->is_alive() &&
-                a->is_close(t, a->get_interaction_distance()))
-            {
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: 
+            // Проверяем расстояние БЕЗ разрыва между проверкой и действием
+            bool alive_a = a->is_alive();
+            bool alive_t = t->is_alive();
+            
+            // Получаем расстояние thread-safe способом
+            int distance = -1;
+            if (alive_a && alive_t) {
+                distance = a->get_distance_to(t);
+            }
+            
+            int interaction_dist = a->get_interaction_distance();
+            
+            // Проверка близости с логированием для отладки
+            if (alive_a && alive_t && distance >= 0 && distance <= interaction_dist) {
+                // Атака
                 AttackVisitor av1(a);
-                apply_outcome(a, t, t->accept(av1));
-                AttackVisitor av2(t);
-                apply_outcome(t, a, a->accept(av2));
+                InteractionOutcome outcome1 = t->accept(av1);
+                apply_outcome(a, t, outcome1);
+                
+                // Контратака (если target ещё жив)
+                if (t->is_alive()) {
+                    AttackVisitor av2(t);
+                    InteractionOutcome outcome2 = a->accept(av2);
+                    apply_outcome(t, a, outcome2);
+                }
             }
 
-            if ((a->is_alive() || t->is_alive()) &&
-                a->is_close(t, a->get_interaction_distance())) {
-                SupportVisitor sv1(a);
-                apply_outcome(a, t, t->accept(sv1));
+            // Поддержка (лечение)
+            alive_a = a->is_alive();
+            alive_t = t->is_alive();
+            
+            if ((alive_a || alive_t)) {
+                distance = a->get_distance_to(t);
+                if (distance >= 0 && distance <= interaction_dist) {
+                    SupportVisitor sv1(a);
+                    InteractionOutcome outcome = t->accept(sv1);
+                    apply_outcome(a, t, outcome);
 
-                SupportVisitor sv2(t);
-                apply_outcome(t, a, a->accept(sv2));
+                    SupportVisitor sv2(t);
+                    InteractionOutcome outcome2 = a->accept(sv2);
+                    apply_outcome(t, a, outcome2);
+                }
             }
 
-            std::this_thread::sleep_for(10ms);
+            std::this_thread::sleep_for(5ms);
         }
-        std::this_thread::sleep_for(10ms);
+        std::this_thread::sleep_for(5ms);
     }
 }
 
@@ -406,7 +432,7 @@ void draw_map(const std::vector<std::shared_ptr<NPC>>& list) {
     std::cout << std::string(3 * GRID, '=') << "\n\n";
 }
 
-// ---------------- Функции рандома (можно заменить на обычный rand) ----------------
+// ---------------- Функции рандома ----------------
 NPCType random_type() {
     static std::mt19937 gen(std::random_device{}());
     std::uniform_int_distribution<int> dist(1, 4);

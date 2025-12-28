@@ -39,21 +39,12 @@ int main() {
 
     print_all(npcs);
 
-    // Create and initialize the visual observer
-    auto visualObserver = std::make_shared<VisualObserver>();
-        
-    // Create and initialize the visual wrapper
-    VisualWrapper visualWrapper(800, 600);
-    bool visualInitialized = visualWrapper.initialize();
-    if (!visualInitialized) {
-        std::cerr << "Failed to initialize visual wrapper" << std::endl;
-        // Continue without visual wrapper if initialization fails
-    } else {
-        // Set the NPCs for the visual wrapper
-        visualWrapper.setNPCs(npcs);
-        for (auto& npc : npcs) {
-            npc->subscribe(visualObserver);
-        }
+    // Create visual observer using singleton
+    auto visualObserver = VisualObserver::get();
+    
+    // Subscribe all NPCs to visual observer
+    for (auto& npc : npcs) {
+        npc->subscribe(visualObserver);
     }
         
     std::atomic<bool> running{true};
@@ -80,28 +71,41 @@ int main() {
                 for (size_t j = i + 1; j < npcs.size(); ++j)
                     InteractionManager::instance().push({npcs[i], npcs[j]});
     
-            std::this_thread::sleep_for(10ms);
+            std::this_thread::sleep_for(500ms); // Плавная интерполяция сделает движение гладким
         }
     });
     
     // ---- Visual wrapper thread ----
+    // ВАЖНО: создаём и инициализируем визуальный враппер ВНУТРИ потока
     std::thread visual_thread([&]() {
-        if (visualInitialized) {
-            visualWrapper.run();
+        // Создаём окно в этом потоке
+        VisualWrapper visualWrapper(800, 600);
+        if (!visualWrapper.initialize()) {
+            std::cerr << "Failed to initialize visual wrapper" << std::endl;
+            return;
         }
-    });
-    
-    // Update visual wrapper with interaction messages
-    std::thread interaction_update_thread([&]() {
-        while (running) {
-            if (visualInitialized) {
-                std::string lastMsg = visualObserver->getLastInteractionMessage();
-                if (!lastMsg.empty()) {
-                    visualWrapper.setInteractionMessage(lastMsg);
-                }
+        
+        std::cout << "Visual wrapper initialized in visual thread" << std::endl;
+        
+        // Установить NPCs
+        visualWrapper.setNPCs(npcs);
+        
+        // Запустить цикл отрисовки
+        while (running && visualWrapper.isWindowOpen()) {
+            // Обновить сообщение о взаимодействии из singleton
+            auto visualObs = std::static_pointer_cast<VisualObserver>(VisualObserver::get());
+            std::string lastMsg = visualObs->getLastInteractionMessage();
+            if (!lastMsg.empty()) {
+                visualWrapper.setInteractionMessage(lastMsg);
             }
-            std::this_thread::sleep_for(100ms); // Update every 100ms
+            
+            visualWrapper.handleEvents();
+            visualWrapper.render();
+            
+            std::this_thread::sleep_for(16ms); // 60 FPS для плавной интерполяции
         }
+        
+        running = false; // Если окно закрыли, остановить игру
     });
 
     // ---- Game duration ----
@@ -110,7 +114,9 @@ int main() {
 
     // ---- Finish ----
     move_thread.join();
-    interaction_update_thread.join();
+    
+    // Дождаться завершения визуального потока
+    visual_thread.join();
     
     InteractionManager::instance().stop();
     Interaction_thread.join();

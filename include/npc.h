@@ -4,6 +4,7 @@
 #include <vector>
 #include <iostream>
 #include <shared_mutex>
+#include <chrono>
 
 struct Orc;
 struct Squirrel;
@@ -48,6 +49,11 @@ struct NPC : public std::enable_shared_from_this<NPC> {
     int y{0};
     bool alive{true};
     std::vector<std::shared_ptr<IInteractionObserver>> observers;
+    
+    // Для плавного движения
+    int prev_x{0};
+    int prev_y{0};
+    std::chrono::steady_clock::time_point last_move_time;
 
     NPC() = default;
     NPC(NPCType t, std::string_view nm, int x_, int y_);
@@ -64,12 +70,19 @@ struct NPC : public std::enable_shared_from_this<NPC> {
 
     bool is_close(const std::shared_ptr<NPC> &other, int distance) const;
     
+    // Получить расстояние до другого NPC (thread-safe)
+    int get_distance_to(const std::shared_ptr<NPC> &other) const;
+    
     void move(int shift_x, int shift_y, int max_x, int max_y);
 
     bool is_alive() const;
     void must_die();
     void heal();
     std::pair<int,int> position() const;
+    
+    // Новый метод для получения интерполированной позиции
+    std::pair<float, float> get_visual_position(float interpolation_time_ms = 500.0f) const;
+    
     std::string get_color(NPCType t) const;
     int get_move_distance() const;
     int get_interaction_distance() const;

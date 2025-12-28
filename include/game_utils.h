@@ -10,8 +10,9 @@
 #include "squirrel.h"
 #include "bear.h"
 
-constexpr int MAP_X = 100;
-constexpr int MAP_Y = 100;
+// Оптимизированные параметры для частых взаимодействий
+constexpr int MAP_X = 50;   // Уменьшено со 100 - теперь NPC ближе друг к другу
+constexpr int MAP_Y = 50;   // Уменьшено со 100
 constexpr int GRID = 20;
 
 // ---------------- Наблюдатели ----------------

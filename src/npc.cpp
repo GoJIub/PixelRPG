@@ -9,8 +9,10 @@
 #include "../include/druid.h"
 
 NPC::NPC(NPCType t, std::string_view nm, int x_, int y_)
-    : type(t), name(nm), x(x_), y(y_)
-{}
+    : type(t), name(nm), x(x_), y(y_), prev_x(x_), prev_y(y_)
+{
+    last_move_time = std::chrono::steady_clock::now();
+}
 
 void NPC::subscribe(const std::shared_ptr<IInteractionObserver> &obs) {
     if (!obs) return;
@@ -43,20 +45,47 @@ void NPC::print(std::ostream &os) const {
     os << name << " [" << type_to_string(type) << "] at (" << x << "," << y << ")";
 }
 
+// ИСПРАВЛЕНО: Добавлена защита mutex
 bool NPC::is_close(const std::shared_ptr<NPC> &other, int distance) const {
-    if (std::pow(x - other->x, 2) + std::pow(y - other->y, 2) <= std::pow(distance, 2))
-        return true;
-    else
-        return false;
+    // Блокировка обоих NPC для атомарного чтения координат
+    std::lock_guard<std::mutex> lck1(mtx);
+    std::lock_guard<std::mutex> lck2(other->mtx);
+    
+    int dx = x - other->x;
+    int dy = y - other->y;
+    
+    return (dx * dx + dy * dy) <= (distance * distance);
 }
 
 void NPC::move(int shift_x, int shift_y, int max_x, int max_y) {
     std::lock_guard<std::mutex> lck(mtx);
+    
+    // Сохранить предыдущую позицию для интерполяции
+    prev_x = x;
+    prev_y = y;
+    last_move_time = std::chrono::steady_clock::now();
 
     if ((x + shift_x >= 0) && (x + shift_x <= max_x))
         x += shift_x;
     if ((y + shift_y >= 0) && (y + shift_y <= max_y))
         y += shift_y;
+}
+
+std::pair<float, float> NPC::get_visual_position(float interpolation_time_ms) const {
+    std::lock_guard<std::mutex> lck(mtx);
+    
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_move_time).count();
+    
+    float t = std::min(1.0f, static_cast<float>(elapsed) / interpolation_time_ms);
+    
+    // Ease-out quartic для более плавного движения
+    t = 1.0f - std::pow(1.0f - t, 4.0f);
+    
+    float visual_x = prev_x + (x - prev_x) * t;
+    float visual_y = prev_y + (y - prev_y) * t;
+    
+    return {visual_x, visual_y};
 }
 
 bool NPC::is_alive() const {
@@ -90,22 +119,24 @@ std::string NPC::get_color(NPCType t) const {
     }
 }
 
+// Увеличенные дистанции движения для меньшей карты
 int NPC::get_move_distance() const {
     switch (type) {
-        case NPCType::Orc:      return 20;
-        case NPCType::Bear:     return 5;
-        case NPCType::Squirrel: return 5;
-        case NPCType::Druid:    return 10;
+        case NPCType::Orc:      return 8;
+        case NPCType::Bear:     return 2;
+        case NPCType::Squirrel: return 2;
+        case NPCType::Druid:    return 4;
         default:                return 0;
     }
 }
 
+// Увеличенные дистанции взаимодействия для более частых контактов
 int NPC::get_interaction_distance() const {
     switch (type) {
-        case NPCType::Orc:      return 10;
-        case NPCType::Bear:     return 10;
-        case NPCType::Squirrel: return 5;
-        case NPCType::Druid:    return 10;
+        case NPCType::Orc:      return 15;
+        case NPCType::Bear:     return 12;
+        case NPCType::Squirrel: return 8;
+        case NPCType::Druid:    return 15;
         default:                return 0;
     }
 }
@@ -116,6 +147,17 @@ bool NPC::get_state(int& x_, int& y_) const {
     x_ = x;
     y_ = y;
     return true;
+}
+
+// НОВЫЙ МЕТОД: Получить расстояние до другого NPC
+int NPC::get_distance_to(const std::shared_ptr<NPC> &other) const {
+    std::lock_guard<std::mutex> lck1(mtx);
+    std::lock_guard<std::mutex> lck2(other->mtx);
+    
+    int dx = x - other->x;
+    int dy = y - other->y;
+    
+    return static_cast<int>(std::sqrt(dx * dx + dy * dy));
 }
 
 std::shared_ptr<NPC> createNPC(NPCType type, const std::string &name, int x, int y) {

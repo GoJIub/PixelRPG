@@ -1,0 +1,31 @@
+{
+  "name": "PixelRPG SFML Dev Container",
+  "image": "pixelrpg:latest",
+  "runArgs": [
+    "--name", "pixelrpg-dev-container"
+  ],
+  "workspaceFolder": "/workspaces/PixelRPG",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/PixelRPG,type=bind,consistency=cached",
+  "mounts": [
+    "source=/run/desktop/mnt/host/wslg/.X11-unix,target=/tmp/.X11-unix,type=bind",
+    "source=/run/desktop/mnt/host/wslg,target=/mnt/wslg,type=bind"
+  ],
+  "remoteEnv": {
+    "DISPLAY": ":0"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "twxs.cmake"
+      ],
+      "settings": {
+        "C_Cpp.default.cppStandard": "c++20",
+        "cmake.buildDirectory": "${workspaceFolder}/build"
+      }
+    }
+  },
+  "postCreateCommand": "mkdir -p build && cd build && cmake .. && make",
+  "features": {}
+}

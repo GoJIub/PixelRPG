@@ -65,3 +65,17 @@ The game will start with 50 randomly placed NPCs that will move around and inter
 - **Interaction System**: Uses visitor pattern for different interaction types
 - **Observer Pattern**: For logging and visual updates
 - **Visual Wrapper**: SFML-based graphical interface
+
+```
+docker run -it \
+  --name PixelRPG \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v /mnt/wslg:/mnt/wslg \
+  -e DISPLAY=:0 \
+  -e WAYLAND_DISPLAY=wayland-0 \
+  -e XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir \
+  -e PULSE_SERVER=/mnt/wslg/PulseServer \
+  -v D:\Projects \
+  --workdir /workspaces/PixelRPG/build \
+  gcc:latest
+```
