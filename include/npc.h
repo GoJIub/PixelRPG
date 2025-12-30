@@ -21,6 +21,7 @@ enum class NPCType {
 
 enum class InteractionOutcome {
     TargetKilled,
+    TargetHurted,
     TargetEscaped,
     TargetHealed,
     NoInteraction
@@ -47,6 +48,7 @@ struct NPC : public std::enable_shared_from_this<NPC> {
     std::string name;
     int x{0};
     int y{0};
+    int health{100};
     bool alive{true};
     std::vector<std::shared_ptr<IInteractionObserver>> observers;
     
@@ -65,14 +67,10 @@ struct NPC : public std::enable_shared_from_this<NPC> {
     void notify_interaction(const std::shared_ptr<NPC> &target, InteractionOutcome outcome);
 
     virtual void save(std::ostream &os) const;
-
     virtual void print(std::ostream &os) const;
 
     bool is_close(const std::shared_ptr<NPC> &other, int distance) const;
-    
-    // Получить расстояние до другого NPC (thread-safe)
     int get_distance_to(const std::shared_ptr<NPC> &other) const;
-    
     void move(int shift_x, int shift_y, int max_x, int max_y);
 
     bool is_alive() const;
@@ -86,7 +84,10 @@ struct NPC : public std::enable_shared_from_this<NPC> {
     std::string get_color(NPCType t) const;
     int get_move_distance() const;
     int get_interaction_distance() const;
+    int get_max_health() const;
+    int get_damage_amount() const;
     bool get_state(int& x_, int& y_) const;
+    int get_current_health() const;
 };
 
 std::string type_to_string(NPCType t);

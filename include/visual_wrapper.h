@@ -9,8 +9,8 @@
 
 // Типы визуальных эффектов
 enum class EffectType {
-    Attack,      // Красная вспышка
     Kill,        // Взрыв частиц
+    Hurt,      // Желтая вспышка
     Escape,      // Зелёные следы
     Heal         // Голубое сияние
 };
@@ -136,14 +136,15 @@ private:
     
     void createDefaultTextures();
     sf::Color getColorForNPC(NPCType type) const;
+    void drawHealthBar(float screen_x, float screen_y, int hp, int maxHp);
     
     // Рендеринг эффектов
     void renderEffects(const std::deque<VisualEffect>& effects, float scaleX, float scaleY);
     void renderParticles(const std::deque<Particle>& particles, float scaleX, float scaleY);
     
     // Отрисовка конкретного эффекта
-    void drawAttackEffect(float x, float y, float progress, sf::Color color);
     void drawKillEffect(float x, float y, float progress);
+    void drawHurtEffect(float x, float y, float progress);
     void drawEscapeEffect(float x, float y, float progress);
     void drawHealEffect(float x, float y, float progress);
 

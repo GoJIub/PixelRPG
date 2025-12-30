@@ -31,7 +31,7 @@ class FileObserver : public IInteractionObserver {
 private:
     explicit FileObserver(const std::string& filename);
     std::string fname;
-    static const int W1, W2, WP, WA, W3, W4, WP2;
+    static const int W1, W2, WH, WP, WA, W3, W4;
 
 public:
     static std::shared_ptr<IInteractionObserver> get(const std::string& filename);

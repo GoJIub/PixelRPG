@@ -11,6 +11,7 @@
 NPC::NPC(NPCType t, std::string_view nm, int x_, int y_)
     : type(t), name(nm), x(x_), y(y_), prev_x(x_), prev_y(y_)
 {
+    health = get_max_health();
     last_move_time = std::chrono::steady_clock::now();
 }
 
@@ -100,7 +101,7 @@ void NPC::must_die() {
 
 void NPC::heal() {
     std::lock_guard<std::mutex> lck(mtx);
-    alive = true;
+    health = get_max_health();
 }
 
 std::pair<int,int> NPC::position() const {
@@ -141,6 +142,27 @@ int NPC::get_interaction_distance() const {
     }
 }
 
+int NPC::get_max_health() const {
+    switch (type) {
+        case NPCType::Orc:      return 120;
+        case NPCType::Bear:     return 150;
+        case NPCType::Squirrel: return 50;
+        case NPCType::Druid:    return 100;
+        default:                return 100;
+    }
+}
+
+int NPC::get_damage_amount() const {
+    std::lock_guard<std::mutex> lck(mtx);
+    switch (type) {
+        case NPCType::Orc:      return 70;
+        case NPCType::Bear:     return 25;
+        case NPCType::Squirrel: return 0;
+        case NPCType::Druid:    return 0;
+        default:                return 5;
+    }
+}
+
 bool NPC::get_state(int& x_, int& y_) const {
     std::lock_guard<std::mutex> lck(mtx);
     if (!alive) return false;
@@ -158,6 +180,11 @@ int NPC::get_distance_to(const std::shared_ptr<NPC> &other) const {
     int dy = y - other->y;
     
     return static_cast<int>(std::sqrt(dx * dx + dy * dy));
+}
+
+int NPC::get_current_health() const {
+    std::lock_guard<std::mutex> lck(mtx);
+    return health;
 }
 
 std::shared_ptr<NPC> createNPC(NPCType type, const std::string &name, int x, int y) {

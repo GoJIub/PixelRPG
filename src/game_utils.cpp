@@ -20,11 +20,11 @@ std::mutex print_mutex;
 // ---------------- Константы FileObserver ----------------
 const int FileObserver::W1 = 18;
 const int FileObserver::W2 = 10;
+const int FileObserver::WH = 8;
 const int FileObserver::WP = 11;
 const int FileObserver::WA = 10;
 const int FileObserver::W3 = 18;
 const int FileObserver::W4 = 10;
-const int FileObserver::WP2 = 9;
 
 // ---------------- Наблюдатели ----------------
 std::shared_ptr<IInteractionObserver> ConsoleObserver::get() {
@@ -48,6 +48,13 @@ void ConsoleObserver::on_interaction(const std::shared_ptr<NPC>& actor,
                   << target->name << " (" << type_to_string(target->type) << ")\n";
         break;
 
+    case InteractionOutcome::TargetHurted:
+        std::cout << ">>> "
+                  << actor->name << " (" << type_to_string(actor->type) << ")"
+                  << " hurted "
+                  << target->name << " (" << type_to_string(target->type) << ")\n";
+        break;
+
     case InteractionOutcome::TargetEscaped:
         std::cout << ">>> "
                   << target->name << " (" << type_to_string(target->type) << ")"
@@ -57,7 +64,7 @@ void ConsoleObserver::on_interaction(const std::shared_ptr<NPC>& actor,
 
     case InteractionOutcome::TargetHealed:
         std::cout << ">>> "
-                << actor->name << " (Druid)"
+                << actor->name << " (" << type_to_string(actor->type) << ")"
                 << "healed"
                 << target->name << " (" << type_to_string(target->type) << ")\n";
         break;
@@ -77,14 +84,16 @@ FileObserver::FileObserver(const std::string& filename) : fname(filename)
     f << std::left
       << std::setw(W1)  << "Actor"
       << std::setw(W2)  << "Type"
+      << std::setw(WH)  << "Health"
       << std::setw(WP)  << "Pos"
       << std::setw(WA)  << "Action"
       << std::setw(W3)  << "Target"
       << std::setw(W4)  << "Type"
-      << std::setw(WP2) << "Pos"
+      << std::setw(WH)  << "Health"
+      << std::setw(WP)  << "Pos"
       << "\n";
 
-    f << std::string(W1 + W2 + WP + WA + W3 + W4 + WP2, '-') << "\n";
+    f << std::string(W1 + W2 + WH + WP + WA + W3 + W4, '-') << "\n";
 }
 
 std::shared_ptr<IInteractionObserver> FileObserver::get(const std::string& filename)
@@ -121,11 +130,27 @@ void FileObserver::on_interaction(const std::shared_ptr<NPC>& actor,
         f << std::left
           << std::setw(W1) << actor->name
           << std::setw(W2) << type_to_string(actor->type)
+          << std::setw(WH) << actor->health
           << std::setw(WP) << aPos
           << std::setw(WA) << "killed"
           << std::setw(W3) << target->name
           << std::setw(W4) << type_to_string(target->type)
-          << std::setw(WP2) << tPos
+          << std::setw(WH) << target->health
+          << std::setw(WP) << tPos
+          << "\n";
+        break;
+
+    case InteractionOutcome::TargetHurted:
+        f << std::left
+          << std::setw(W1) << actor->name
+          << std::setw(W2) << type_to_string(actor->type)
+          << std::setw(WH) << actor->health
+          << std::setw(WP) << aPos
+          << std::setw(WA) << "hurted"
+          << std::setw(W3) << target->name
+          << std::setw(W4) << type_to_string(target->type)
+          << std::setw(WH) << target->health
+          << std::setw(WP) << tPos
           << "\n";
         break;
 
@@ -133,11 +158,13 @@ void FileObserver::on_interaction(const std::shared_ptr<NPC>& actor,
         f << std::left
           << std::setw(W1) << target->name
           << std::setw(W2) << type_to_string(target->type)
+          << std::setw(WH) << target->health
           << std::setw(WP) << tPos
           << std::setw(WA) << "escaped"
           << std::setw(W3) << actor->name
           << std::setw(W4) << type_to_string(actor->type)
-          << std::setw(WP2) << aPos
+          << std::setw(WH) << actor->health
+          << std::setw(WP) << aPos
           << "\n";
         break;
 
@@ -145,11 +172,13 @@ void FileObserver::on_interaction(const std::shared_ptr<NPC>& actor,
         f << std::left
           << std::setw(W1) << actor->name
           << std::setw(W2) << type_to_string(actor->type)
+          << std::setw(WH) << actor->health
           << std::setw(WP) << aPos
           << std::setw(WA) << "healed"
           << std::setw(W3) << target->name
           << std::setw(W4) << type_to_string(target->type)
-          << std::setw(WP2) << tPos
+          << std::setw(WH) << target->health
+          << std::setw(WP) << tPos
           << "\n";
         break;
 
@@ -166,7 +195,7 @@ InteractionOutcome AttackVisitor::visit([[maybe_unused]] Orc& target) {
     if (!actor->is_alive()) return InteractionOutcome::NoInteraction;
 
     if (actor->type == NPCType::Orc)
-        return dice() ? InteractionOutcome::TargetKilled : InteractionOutcome::TargetEscaped;
+        return dice() ? InteractionOutcome::TargetHurted : InteractionOutcome::TargetEscaped;
 
     return InteractionOutcome::NoInteraction;
 }
@@ -175,7 +204,7 @@ InteractionOutcome AttackVisitor::visit([[maybe_unused]] Bear& target) {
     if (!actor->is_alive()) return InteractionOutcome::NoInteraction;
 
     if (actor->type == NPCType::Orc)
-        return dice() ? InteractionOutcome::TargetKilled : InteractionOutcome::TargetEscaped;
+        return dice() ? InteractionOutcome::TargetHurted : InteractionOutcome::TargetEscaped;
 
     return InteractionOutcome::NoInteraction;
 }
@@ -184,7 +213,7 @@ InteractionOutcome AttackVisitor::visit([[maybe_unused]] Squirrel& target) {
     if (!actor->is_alive()) return InteractionOutcome::NoInteraction;
 
     if (actor->type == NPCType::Bear)
-        return dice() ? InteractionOutcome::TargetKilled : InteractionOutcome::TargetEscaped;
+        return dice() ? InteractionOutcome::TargetHurted : InteractionOutcome::TargetEscaped;
 
     return InteractionOutcome::NoInteraction;
 }
@@ -193,7 +222,7 @@ InteractionOutcome AttackVisitor::visit([[maybe_unused]] Druid& target) {
     if (!actor->is_alive()) return InteractionOutcome::NoInteraction;
 
     if (actor->type == NPCType::Orc)
-        return dice() ? InteractionOutcome::TargetKilled : InteractionOutcome::TargetEscaped;
+        return dice() ? InteractionOutcome::TargetHurted : InteractionOutcome::TargetEscaped;
 
     return InteractionOutcome::NoInteraction;
 }
@@ -242,8 +271,17 @@ void InteractionManager::apply_outcome(const std::shared_ptr<NPC>& actor,
                    InteractionOutcome outcome)
 {
     switch (outcome) {
-    case InteractionOutcome::TargetKilled:
-        target->must_die();
+    case InteractionOutcome::TargetHurted:
+        {
+            int damage = actor->get_damage_amount();
+            std::lock_guard<std::mutex> lck(target->mtx);
+            target->health -= damage;
+            if (target->health <= 0) {
+                target->health = 0;
+                target->alive = false;
+                outcome = InteractionOutcome::TargetKilled;
+            }
+        }
         actor->notify_interaction(target, outcome);
         break;
 
@@ -316,7 +354,7 @@ void InteractionManager::operator()() {
             alive_a = a->is_alive();
             alive_t = t->is_alive();
             
-            if ((alive_a || alive_t)) {
+            if ((alive_a && alive_t)) {
                 distance = a->get_distance_to(t);
                 if (distance >= 0 && distance <= interaction_dist) {
                     SupportVisitor sv1(a);
@@ -362,19 +400,21 @@ std::vector<std::shared_ptr<NPC>> load_all(const std::string &filename) {
 
 void print_all(const std::vector<std::shared_ptr<NPC>> &list) {
     std::cout << "\n=== NPCs (" << list.size() << ") ===\n";
-    const int W1 = 18, W2 = 10, W3 = 6, W4 = 6;
+    const int W1 = 18, W2 = 10, WH = 6, W3 = 6, W4 = 6;
     std::cout << std::left
               << std::setw(W1) << "Name"
               << std::setw(W2) << "Type"
+              << std::setw(WH) << "Health"
               << std::setw(W3) << "X"
               << std::setw(W4) << "Y"
               << "\n";
-    std::cout << std::string(W1 + W2 + W3 + W4, '-') << "\n";
+    std::cout << std::string(W1 + W2 + WH + W3 + W4, '-') << "\n";
     for (auto &p : list) {
         if (!p) continue;
         std::cout << std::left
                   << std::setw(W1) << p->name
                   << std::setw(W2) << type_to_string(p->type)
+                  << std::setw(WH) << p->health
                   << std::setw(W3) << p->x
                   << std::setw(W4) << p->y
                   << "\n";

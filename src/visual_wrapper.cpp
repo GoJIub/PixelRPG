@@ -19,7 +19,6 @@ void VisualObserver::on_interaction(const std::shared_ptr<NPC>& actor,
     std::lock_guard<std::mutex> lck(message_mutex);
     
     // Получить интерполированные позиции для эффектов
-    auto [actor_x, actor_y] = actor->get_visual_position(300.0f);  // Было 500.0f
     auto [target_x, target_y] = target->get_visual_position(300.0f);
     
     switch (outcome) {
@@ -29,9 +28,18 @@ void VisualObserver::on_interaction(const std::shared_ptr<NPC>& actor,
             std::cout << ">>> " << lastInteractionMessage << std::endl;
             
             // Визуальные эффекты
-            addEffect(EffectType::Attack, target_x, target_y, 300.0f, sf::Color::Red);
-            addEffect(EffectType::Kill, target_x, target_y, 600.0f, sf::Color(255, 100, 0));
-            addParticles(target_x, target_y, 15, sf::Color::Red);
+            addEffect(EffectType::Kill, target_x, target_y, 600.0f, sf::Color(255, 120, 20));
+            addParticles(target_x, target_y, 25, sf::Color(255, 100, 0));
+            break;
+
+        case InteractionOutcome::TargetHurted:
+            lastInteractionMessage = actor->name + " (" + type_to_string(actor->type) + ") hurted " 
+                                   + target->name + " (" + type_to_string(target->type) + ")";
+            std::cout << ">>> " << lastInteractionMessage << std::endl;
+            
+            // Визуальные эффекты
+            addEffect(EffectType::Hurt, target_x, target_y, 450.0f, sf::Color::Yellow);
+            addParticles(target_x, target_y, 10, sf::Color(200, 50, 50));
             break;
             
         case InteractionOutcome::TargetEscaped:
@@ -41,7 +49,7 @@ void VisualObserver::on_interaction(const std::shared_ptr<NPC>& actor,
             
             // Зелёные следы побега
             addEffect(EffectType::Escape, target_x, target_y, 500.0f, sf::Color::Green);
-            addParticles(target_x, target_y, 8, sf::Color(100, 255, 100));
+            addParticles(target_x, target_y, 4, sf::Color(100, 255, 100));
             break;
             
         case InteractionOutcome::TargetHealed:
@@ -216,6 +224,36 @@ sf::Color VisualWrapper::getColorForNPC(NPCType type) const {
     }
 }
 
+void VisualWrapper::drawHealthBar(float screen_x, float screen_y, int hp, int maxHp) {
+    // Пропорция заполнения
+    float ratio = static_cast<float>(hp) / maxHp;
+
+    // Позиция полоски (немного выше NPC)
+    float barWidth = 32.0f;
+    float barHeight = 5.0f;
+    float x = screen_x - barWidth / 2;
+    float y = screen_y - 40; // сместить вверх
+
+    // Фон
+    sf::RectangleShape back(sf::Vector2f(barWidth, barHeight));
+    back.setPosition(x, y);
+    back.setFillColor(sf::Color(0, 0, 0, 180));
+
+    // Цвет зависит от здоровья
+    sf::Color fillColor;
+    if (ratio > 0.6f)       fillColor = sf::Color(70, 255, 70);
+    else if (ratio > 0.3f)  fillColor = sf::Color(255, 200, 50);
+    else                    fillColor = sf::Color(255, 70, 50);
+
+    // Заполненная часть
+    sf::RectangleShape fill(sf::Vector2f(barWidth * ratio, barHeight));
+    fill.setPosition(x, y);
+    fill.setFillColor(fillColor);
+
+    window.draw(back);
+    window.draw(fill);
+}
+
 void VisualWrapper::setNPCs(std::vector<std::shared_ptr<NPC>>& npcs_list) {
     npcs = &npcs_list;
 }
@@ -254,38 +292,39 @@ void VisualWrapper::handleEvents() {
     }
 }
 
-void VisualWrapper::drawAttackEffect(float x, float y, float progress, sf::Color color) {
-    // Пульсирующее кольцо атаки
-    float radius = 15.0f + progress * 20.0f;
-    sf::CircleShape ring(radius);
-    ring.setOrigin(radius, radius);
-    ring.setPosition(x, y);
-    ring.setFillColor(sf::Color::Transparent);
-    
-    sf::Uint8 alpha = static_cast<sf::Uint8>(255 * (1.0f - progress));
-    color.a = alpha;
-    ring.setOutlineColor(color);
-    ring.setOutlineThickness(3.0f);
-    
-    window.draw(ring);
+void VisualWrapper::drawKillEffect(float x, float y, float progress) {
+    float radius = 10.0f + progress * 60.0f;
+
+    sf::CircleShape c(radius);
+    c.setOrigin(radius, radius);
+    c.setPosition(x, y);
+
+    sf::Color col(255, 80, 20, static_cast<sf::Uint8>(255 * (1 - progress)));
+    c.setFillColor(col);
+
+    window.draw(c);
+
+    // добавим "ударную волну"
+    float waveRadius = radius + 10;
+    sf::CircleShape wave(waveRadius);
+    wave.setOrigin(waveRadius, waveRadius);
+    wave.setPosition(x, y);
+
+    wave.setFillColor(sf::Color(255, 200, 0, static_cast<sf::Uint8>(160 * (1 - progress))));
+    window.draw(wave);
 }
 
-void VisualWrapper::drawKillEffect(float x, float y, float progress) {
-    // Взрыв - расширяющиеся круги
-    for (int i = 0; i < 3; ++i) {
-        float offset = i * 0.15f;
-        float adjProgress = std::min(1.0f, progress + offset);
-        
-        float radius = 5.0f + adjProgress * 30.0f;
-        sf::CircleShape explosion(radius);
-        explosion.setOrigin(radius, radius);
-        explosion.setPosition(x, y);
-        
-        sf::Uint8 alpha = static_cast<sf::Uint8>(200 * (1.0f - adjProgress));
-        explosion.setFillColor(sf::Color(255, 100 + i * 30, 0, alpha));
-        
-        window.draw(explosion);
-    }
+void VisualWrapper::drawHurtEffect(float x, float y, float progress) {
+    float radius = 2.0f + progress * 12.0f;
+
+    sf::CircleShape c(radius);
+    c.setOrigin(radius, radius);
+    c.setPosition(x, y);
+
+    sf::Color col(255, 255, 0, static_cast<sf::Uint8>(200 * (1 - progress)));
+    c.setFillColor(col);
+
+    window.draw(c);
 }
 
 void VisualWrapper::drawEscapeEffect(float x, float y, float progress) {
@@ -347,11 +386,11 @@ void VisualWrapper::renderEffects(const std::deque<VisualEffect>& effects, float
         float progress = effect.getProgress();
         
         switch (effect.type) {
-            case EffectType::Attack:
-                drawAttackEffect(screen_x, screen_y, progress, effect.color);
-                break;
             case EffectType::Kill:
                 drawKillEffect(screen_x, screen_y, progress);
+                break;
+            case EffectType::Hurt:
+                drawHurtEffect(screen_x, screen_y, progress);
                 break;
             case EffectType::Escape:
                 drawEscapeEffect(screen_x, screen_y, progress);
@@ -464,6 +503,8 @@ void VisualWrapper::render() {
                 npcShape.setPosition(screen_x - 8, screen_y - 8);
                 
                 window.draw(npcShape);
+                
+                drawHealthBar(screen_x, screen_y, npc->health, npc->get_max_health());
                 
                 sf::Text nameText;
                 nameText.setFont(font);
