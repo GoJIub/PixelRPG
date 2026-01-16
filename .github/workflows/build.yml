@@ -37,14 +37,15 @@ jobs:
       with:
         cmakeVersion: '3.27.0'
 
-    - name: Setup vcpkg on Windows
+    - name: Setup vcpkg (Windows)
       if: runner.os == 'Windows'
+      shell: pwsh
       run: |
         if (-Not (Test-Path C:/vcpkg)) {
           git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
           C:/vcpkg/bootstrap-vcpkg.bat
         }
-        # Ставим SFML 2.5.x (фиксируем стабильную версию)
+        # Устанавливаем SFML в classic mode
         C:/vcpkg/vcpkg install sfml:x64-windows
 
     # ---------- Configure ----------
