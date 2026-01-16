@@ -33,8 +33,6 @@ jobs:
     - name: Install CMake (Windows)
       if: runner.os == 'Windows'
       uses: lukka/get-cmake@v3.27.0
-      with:
-        cmakeVersion: '3.27.5'   # Рабочая версия в каталоге
 
     - name: Setup vcpkg on Windows
       if: runner.os == 'Windows'
