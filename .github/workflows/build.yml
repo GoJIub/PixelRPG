@@ -30,7 +30,7 @@ jobs:
         brew update
         brew install sfml cmake
 
-    - name: Install dependencies (Windows)
+    - name: Install CMake (Windows)
       if: runner.os == 'Windows'
       uses: lukka/get-cmake@v3.27.0
       with:
@@ -41,11 +41,17 @@ jobs:
       run: |
         git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
         C:/vcpkg/bootstrap-vcpkg.bat
-        C:/vcpkg/vcpkg install sfml:x64-windows
+        set VCPKG_ROOT=C:/vcpkg
+        C:/vcpkg/vcpkg install --triplet x64-windows
 
     # ---------- Configure ----------
     - name: Configure
-      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      run: |
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+        else
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+        fi
 
     # ---------- Build ----------
     - name: Build
