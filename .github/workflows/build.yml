@@ -34,14 +34,15 @@ jobs:
       if: runner.os == 'Windows'
       uses: lukka/get-cmake@v3.27.0
       with:
-        cmake-version: '3.31.10'
+        cmakeVersion: '3.31.10'
 
     - name: Setup vcpkg on Windows
       if: runner.os == 'Windows'
       run: |
-        git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
+        if not exist C:\vcpkg git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
         C:/vcpkg/bootstrap-vcpkg.bat
         set VCPKG_ROOT=C:/vcpkg
+        REM -- Используем manifest mode, поэтому без указания пакета
         C:/vcpkg/vcpkg install --triplet x64-windows
 
     # ---------- Configure ----------

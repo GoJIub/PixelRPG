@@ -2,10 +2,6 @@
   "name": "pixelrpg",
   "version": "0.1.0",
   "dependencies": [
-    {
-      "name": "sfml",
-      "version>=": "2.5.1",
-      "platform": "windows"
-    }
+    "sfml"
   ]
 }
