@@ -3,13 +3,14 @@
 #include <stdexcept>
 #include <random>
 #include "../include/npc.h"
+#include "../include/bear.h"
+#include "../include/dragon.h"
+#include "../include/druid.h"
 #include "../include/orc.h"
 #include "../include/squirrel.h"
-#include "../include/bear.h"
-#include "../include/druid.h"
 
 NPC::NPC(NPCType t, std::string_view nm, int x_, int y_)
-    : type(t), name(nm), x(x_), y(y_), prev_x(x_), prev_y(y_)
+    : type(t), name(nm), x(x_), y(y_), prev_x(x_), prev_y(y_), grid_cell(x_ / 5, y_ / 5)
 {
     health = get_max_health();
     last_move_time = std::chrono::steady_clock::now();
@@ -34,10 +35,11 @@ void NPC::save(std::ostream &os) const {
 
 std::string type_to_string(NPCType t) {
     switch (t) {
+        case NPCType::Bear:     return "Bear";
+        case NPCType::Dragon:   return "Dragon";
+        case NPCType::Druid:    return "Druid";
         case NPCType::Orc:      return "Orc";
         case NPCType::Squirrel: return "Squirrel";
-        case NPCType::Bear:     return "Bear";
-        case NPCType::Druid:    return "Druid";
         default:                return "Unknown";
     }
 }
@@ -70,6 +72,7 @@ void NPC::move(int shift_x, int shift_y, int max_x, int max_y) {
         x += shift_x;
     if ((y + shift_y >= 0) && (y + shift_y <= max_y))
         y += shift_y;
+    grid_cell = {x / 5, y / 5};
 }
 
 std::pair<float, float> NPC::get_visual_position(float interpolation_time_ms) const {
@@ -112,10 +115,11 @@ std::pair<int,int> NPC::position() const {
 std::string NPC::get_color(NPCType t) const {
     std::lock_guard<std::mutex> lck(mtx);
     switch (t) {
-        case NPCType::Orc:      return "\033[31m";
         case NPCType::Bear:     return "\033[33m";
-        case NPCType::Squirrel: return "\033[32m";
+        case NPCType::Dragon:   return "\033[0;33m";
         case NPCType::Druid:    return "\033[36m";
+        case NPCType::Orc:      return "\033[31m";
+        case NPCType::Squirrel: return "\033[32m";
         default:                return "\033[35m";
     }
 }
@@ -123,10 +127,11 @@ std::string NPC::get_color(NPCType t) const {
 // Увеличенные дистанции движения для меньшей карты
 int NPC::get_move_distance() const {
     switch (type) {
-        case NPCType::Orc:      return 8;
         case NPCType::Bear:     return 2;
-        case NPCType::Squirrel: return 2;
+        case NPCType::Dragon:   return 12;
         case NPCType::Druid:    return 4;
+        case NPCType::Orc:      return 8;
+        case NPCType::Squirrel: return 2;
         default:                return 0;
     }
 }
@@ -134,31 +139,33 @@ int NPC::get_move_distance() const {
 // Увеличенные дистанции взаимодействия для более частых контактов
 int NPC::get_interaction_distance() const {
     switch (type) {
-        case NPCType::Orc:      return 15;
         case NPCType::Bear:     return 12;
-        case NPCType::Squirrel: return 8;
+        case NPCType::Dragon:   return 20;
         case NPCType::Druid:    return 15;
+        case NPCType::Orc:      return 15;
+        case NPCType::Squirrel: return 8;
         default:                return 0;
     }
 }
 
 int NPC::get_max_health() const {
     switch (type) {
-        case NPCType::Orc:      return 120;
         case NPCType::Bear:     return 150;
-        case NPCType::Squirrel: return 50;
+        case NPCType::Dragon:   return 300;
         case NPCType::Druid:    return 100;
+        case NPCType::Orc:      return 120;
+        case NPCType::Squirrel: return 50;
         default:                return 100;
     }
 }
 
 int NPC::get_damage_amount() const {
-    std::lock_guard<std::mutex> lck(mtx);
     switch (type) {
-        case NPCType::Orc:      return 70;
         case NPCType::Bear:     return 25;
-        case NPCType::Squirrel: return 0;
+        case NPCType::Dragon:   return 80;
         case NPCType::Druid:    return 0;
+        case NPCType::Orc:      return 70;
+        case NPCType::Squirrel: return 0;
         default:                return 5;
     }
 }
@@ -189,10 +196,11 @@ int NPC::get_current_health() const {
 
 std::shared_ptr<NPC> createNPC(NPCType type, const std::string &name, int x, int y) {
     switch (type) {
+        case NPCType::Bear:     return std::make_shared<Bear>(name, x, y);
+        case NPCType::Dragon:   return std::make_shared<Dragon>(name, x, y);
+        case NPCType::Druid:    return std::make_shared<Druid>(name, x, y);
         case NPCType::Orc:      return std::make_shared<Orc>(name, x, y);
         case NPCType::Squirrel: return std::make_shared<Squirrel>(name, x, y);
-        case NPCType::Bear:     return std::make_shared<Bear>(name, x, y);
-        case NPCType::Druid:    return std::make_shared<Druid>(name, x, y);
         default: return nullptr;
     }
 }

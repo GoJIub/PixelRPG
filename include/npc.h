@@ -6,17 +6,19 @@
 #include <shared_mutex>
 #include <chrono>
 
+struct Bear;
+struct Dragon;
+struct Druid;
 struct Orc;
 struct Squirrel;
-struct Bear;
-struct Druid;
 
 enum class NPCType {
     Unknown = 0,
-    Orc = 1,
-    Squirrel = 2,
-    Bear = 3,
-    Druid = 4
+    Bear = 1,
+    Dragon = 2,
+    Druid = 3,
+    Orc = 4,
+    Squirrel = 5
 };
 
 enum class InteractionOutcome {
@@ -28,10 +30,11 @@ enum class InteractionOutcome {
 };
 
 struct IInteractionVisitor {
+    virtual InteractionOutcome visit(Bear &target) = 0;
+    virtual InteractionOutcome visit(Dragon &target) = 0;
+    virtual InteractionOutcome visit(Druid &target) = 0;
     virtual InteractionOutcome visit(Orc &target) = 0;
     virtual InteractionOutcome visit(Squirrel &target) = 0;
-    virtual InteractionOutcome visit(Bear &target) = 0;
-    virtual InteractionOutcome visit(Druid &target) = 0;
     virtual ~IInteractionVisitor() = default;
 };
 
@@ -56,6 +59,8 @@ struct NPC : public std::enable_shared_from_this<NPC> {
     int prev_x{0};
     int prev_y{0};
     std::chrono::steady_clock::time_point last_move_time;
+    
+    std::pair<int, int> grid_cell{0, 0};
 
     NPC() = default;
     NPC(NPCType t, std::string_view nm, int x_, int y_);

@@ -8,6 +8,7 @@
 
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 #include <chrono>
 #include <queue>
 #include <optional>
@@ -16,6 +17,7 @@
 
 using namespace std::chrono_literals;
 std::mutex print_mutex;
+std::mutex global_npcs_mutex;
 
 // ---------------- Константы FileObserver ----------------
 const int FileObserver::W1 = 18;
@@ -191,28 +193,21 @@ void FileObserver::on_interaction(const std::shared_ptr<NPC>& actor,
 AttackVisitor::AttackVisitor(const std::shared_ptr<NPC>& actor_)
     : actor(actor_) {}
 
-InteractionOutcome AttackVisitor::visit([[maybe_unused]] Orc& target) {
-    if (!actor->is_alive()) return InteractionOutcome::NoInteraction;
-
-    if (actor->type == NPCType::Orc)
-        return dice() ? InteractionOutcome::TargetHurted : InteractionOutcome::TargetEscaped;
-
-    return InteractionOutcome::NoInteraction;
-}
-
 InteractionOutcome AttackVisitor::visit([[maybe_unused]] Bear& target) {
     if (!actor->is_alive()) return InteractionOutcome::NoInteraction;
 
-    if (actor->type == NPCType::Orc)
+    NPCType at = actor->type;
+    if (at == NPCType::Orc || at == NPCType::Dragon)
         return dice() ? InteractionOutcome::TargetHurted : InteractionOutcome::TargetEscaped;
 
     return InteractionOutcome::NoInteraction;
 }
 
-InteractionOutcome AttackVisitor::visit([[maybe_unused]] Squirrel& target) {
+InteractionOutcome AttackVisitor::visit([[maybe_unused]] Dragon& target) {
     if (!actor->is_alive()) return InteractionOutcome::NoInteraction;
 
-    if (actor->type == NPCType::Bear)
+    NPCType at = actor->type;
+    if (at == NPCType::Orc || at == NPCType::Dragon)
         return dice() ? InteractionOutcome::TargetHurted : InteractionOutcome::TargetEscaped;
 
     return InteractionOutcome::NoInteraction;
@@ -221,7 +216,28 @@ InteractionOutcome AttackVisitor::visit([[maybe_unused]] Squirrel& target) {
 InteractionOutcome AttackVisitor::visit([[maybe_unused]] Druid& target) {
     if (!actor->is_alive()) return InteractionOutcome::NoInteraction;
 
-    if (actor->type == NPCType::Orc)
+    NPCType at = actor->type;
+    if (at == NPCType::Orc || at == NPCType::Dragon)
+        return dice() ? InteractionOutcome::TargetHurted : InteractionOutcome::TargetEscaped;
+
+    return InteractionOutcome::NoInteraction;
+}
+
+InteractionOutcome AttackVisitor::visit([[maybe_unused]] Orc& target) {
+    if (!actor->is_alive()) return InteractionOutcome::NoInteraction;
+
+    NPCType at = actor->type;
+    if (at == NPCType::Orc || at == NPCType::Dragon)
+        return dice() ? InteractionOutcome::TargetHurted : InteractionOutcome::TargetEscaped;
+
+    return InteractionOutcome::NoInteraction;
+}
+
+InteractionOutcome AttackVisitor::visit([[maybe_unused]] Squirrel& target) {
+    if (!actor->is_alive()) return InteractionOutcome::NoInteraction;
+
+    NPCType at = actor->type;
+    if (at == NPCType::Bear)
         return dice() ? InteractionOutcome::TargetHurted : InteractionOutcome::TargetEscaped;
 
     return InteractionOutcome::NoInteraction;
@@ -234,25 +250,29 @@ bool AttackVisitor::dice() {
 SupportVisitor::SupportVisitor(const std::shared_ptr<NPC>& actor_)
     : actor(actor_) {}
 
-InteractionOutcome SupportVisitor::visit(Orc&) {
-    return InteractionOutcome::NoInteraction;
-}
-
 InteractionOutcome SupportVisitor::visit(Bear& target) {
-    if (actor->type == NPCType::Druid && !target.is_alive())
+    if (actor->type == NPCType::Druid && target.is_alive() && target.get_current_health() != target.get_max_health())
         return InteractionOutcome::TargetHealed;
 
     return InteractionOutcome::NoInteraction;
 }
 
-InteractionOutcome SupportVisitor::visit(Squirrel& target) {
-    if (actor->type == NPCType::Druid && !target.is_alive())
-        return InteractionOutcome::TargetHealed;
-
+InteractionOutcome SupportVisitor::visit(Dragon&) {
     return InteractionOutcome::NoInteraction;
 }
 
 InteractionOutcome SupportVisitor::visit(Druid&) {
+    return InteractionOutcome::NoInteraction;
+}
+
+InteractionOutcome SupportVisitor::visit(Orc&) {
+    return InteractionOutcome::NoInteraction;
+}
+
+InteractionOutcome SupportVisitor::visit(Squirrel& target) {
+    if (actor->type == NPCType::Druid && target.is_alive() && target.get_current_health() != target.get_max_health())
+        return InteractionOutcome::TargetHealed;
+
     return InteractionOutcome::NoInteraction;
 }
 
@@ -270,6 +290,8 @@ void InteractionManager::apply_outcome(const std::shared_ptr<NPC>& actor,
                    const std::shared_ptr<NPC>& target,
                    InteractionOutcome outcome)
 {
+    std::lock_guard<std::mutex> lock(global_npcs_mutex);
+
     switch (outcome) {
     case InteractionOutcome::TargetHurted:
         {
@@ -297,6 +319,8 @@ void InteractionManager::apply_outcome(const std::shared_ptr<NPC>& actor,
     case InteractionOutcome::NoInteraction:
         break;
     }
+
+    effects_cv.notify_one();
 }
 
 void InteractionManager::operator()() {
@@ -322,7 +346,6 @@ void InteractionManager::operator()() {
                 continue;
             }
 
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: 
             // Проверяем расстояние БЕЗ разрыва между проверкой и действием
             bool alive_a = a->is_alive();
             bool alive_t = t->is_alive();
@@ -447,10 +470,11 @@ void draw_map(const std::vector<std::shared_ptr<NPC>>& list) {
             c = '*';
         else {
             switch (npc->type) {
-                case NPCType::Orc: c = 'O'; break;
-                case NPCType::Bear: c = 'B'; break;
+                case NPCType::Bear:     c = 'B'; break;
+                case NPCType::Dragon:   c = 'D'; break;
+                case NPCType::Druid:    c = 'D'; break;
+                case NPCType::Orc:      c = 'O'; break;
                 case NPCType::Squirrel: c = 'S'; break;
-                case NPCType::Druid: c = 'D'; break;
                 default: c = '?';
             }
         }
