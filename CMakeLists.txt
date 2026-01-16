@@ -11,13 +11,15 @@ option(PIXELRPG_HEADLESS "Build without SFML (no GUI)" OFF)
 # ------------------------------------------------------------
 add_executable(PixelRPG)
 
+# C++20
 target_compile_features(PixelRPG PRIVATE cxx_std_20)
 
-target_compile_options(PixelRPG PRIVATE
-    -Wall
-    -Wextra
-    -Werror=maybe-uninitialized
-)
+# Compile flags
+if(MSVC)
+    target_compile_options(PixelRPG PRIVATE /W4 /WX)
+else()
+    target_compile_options(PixelRPG PRIVATE -Wall -Wextra -Werror=maybe-uninitialized)
+endif()
 
 # ------------------------------------------------------------
 # Sources
@@ -40,13 +42,15 @@ target_include_directories(PixelRPG PRIVATE
 # ------------------------------------------------------------
 # SFML (optional)
 # ------------------------------------------------------------
-if (NOT PIXELRPG_HEADLESS)
+if(NOT PIXELRPG_HEADLESS)
     message(STATUS "Building with SFML (GUI enabled)")
-    find_package(SFML 2.5 REQUIRED COMPONENTS graphics window system audio)
 
-    target_sources(PixelRPG PRIVATE
-        src/visual_wrapper.cpp
-    )
+    # Разрешаем SFML версии 2.5 и выше
+    set(SFML_MIN_VERSION "2.5")
+    find_package(SFML ${SFML_MIN_VERSION} REQUIRED COMPONENTS graphics window system audio)
+
+    # visual wrapper
+    target_sources(PixelRPG PRIVATE src/visual_wrapper.cpp)
 
     target_link_libraries(PixelRPG PRIVATE
         sfml-graphics
@@ -54,6 +58,11 @@ if (NOT PIXELRPG_HEADLESS)
         sfml-system
         sfml-audio
     )
+
+    # Для Windows + vcpkg auto-link
+    if(MSVC AND DEFINED ENV{VCPKG_ROOT})
+        set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
+    endif()
 else()
     message(STATUS "Building headless (no GUI)")
     target_compile_definitions(PixelRPG PRIVATE PIXELRPG_HEADLESS)

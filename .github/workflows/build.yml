@@ -1,55 +1,69 @@
 name: Build PixelRPG
+
 on:
   push:
     branches: [ main ]
     tags: [ "v*" ]
+  workflow_dispatch:
+
 jobs:
   build:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+
     runs-on: ${{ matrix.os }}
-    env:
-      VCPKG_ROOT: ${{ runner.temp }}/vcpkg
+
     steps:
     - uses: actions/checkout@v4
-    # ---------- Setup vcpkg ----------
-    - name: Setup vcpkg
-      shell: bash
+
+    # ---------- Dependencies ----------
+    - name: Install dependencies (Linux)
+      if: runner.os == 'Linux'
       run: |
-        git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
-        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-          $VCPKG_ROOT/bootstrap-vcpkg.bat -disableMetrics
-        else
-          $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics
-        fi
-    # ---------- Install Dependencies ----------
-    - name: Install SFML via vcpkg
-      shell: bash
+        sudo apt-get update
+        sudo apt-get install -y libsfml-dev build-essential cmake git
+
+    - name: Install dependencies (macOS)
+      if: runner.os == 'macOS'
       run: |
-        $VCPKG_ROOT/vcpkg install
-    # ---------- Build ----------
+        brew update
+        brew install sfml cmake
+
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      uses: lukka/get-cmake@v3
+      with:
+        cmake-version: '3.31.10'
+
+    - name: Setup vcpkg on Windows
+      if: runner.os == 'Windows'
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
+        C:/vcpkg/bootstrap-vcpkg.bat
+        C:/vcpkg/vcpkg install sfml:x64-windows
+
+    # ---------- Configure ----------
     - name: Configure
-      shell: bash
-      run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+    # ---------- Build ----------
     - name: Build
-      shell: bash
-      run: |
-        cmake --build build --config Release
+      run: cmake --build build --config Release
+
     # ---------- Package ----------
     - name: Package
       shell: bash
       run: |
-        mkdir dist
-        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+        mkdir -p dist
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
           cp build/Release/PixelRPG.exe dist/
         else
           cp build/PixelRPG dist/
         fi
+
     # ---------- Upload ----------
     - name: Upload binaries
-      if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v1
       with:
         files: dist/*
