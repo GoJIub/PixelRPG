@@ -1,38 +1,60 @@
-cmake_minimum_required(VERSION 3.10)
-project(PixelRPG)
+cmake_minimum_required(VERSION 3.16)
+project(PixelRPG LANGUAGES CXX)
 
-# === Настройки C++ ===
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+# ------------------------------------------------------------
+# Options
+# ------------------------------------------------------------
+option(PIXELRPG_HEADLESS "Build without SFML (no GUI)" OFF)
 
-# === Флаги компиляции ===
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror=maybe-uninitialized")
+# ------------------------------------------------------------
+# Target
+# ------------------------------------------------------------
+add_executable(PixelRPG)
 
-# === Основная программа (СОЗДАЁМ ЦЕЛЬ СНАЧАЛА!) ===
-add_executable(${CMAKE_PROJECT_NAME}
-    main.cpp
-    src/npc.cpp
-    src/orc.cpp
-    src/squirrel.cpp
-    src/bear.cpp
-    src/druid.cpp
-    src/game_utils.cpp
-    src/visual_wrapper.cpp
+target_compile_features(PixelRPG PRIVATE cxx_std_20)
+
+target_compile_options(PixelRPG PRIVATE
+    -Wall
+    -Wextra
+    -Werror=maybe-uninitialized
 )
 
-# === Включение директорий ===
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+# ------------------------------------------------------------
+# Sources
+# ------------------------------------------------------------
+target_sources(PixelRPG PRIVATE
+    main.cpp
+    src/npc.cpp
+    src/bear.cpp
+    src/dragon.cpp
+    src/druid.cpp
+    src/orc.cpp
+    src/squirrel.cpp
+    src/game_utils.cpp
+)
+
+target_include_directories(PixelRPG PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# === SFML (ЛИНКУЕМ ПОСЛЕ СОЗДАНИЯ ЦЕЛИ) ===
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
-    sfml-graphics
-    sfml-window
-    sfml-system
-    sfml-audio
-)
+# ------------------------------------------------------------
+# SFML (optional)
+# ------------------------------------------------------------
+if (NOT PIXELRPG_HEADLESS)
+    message(STATUS "Building with SFML (GUI enabled)")
+    find_package(SFML 2.5 REQUIRED COMPONENTS graphics window system audio)
 
-# Опционально: сообщение, чтобы знать, что всё ок
-message(STATUS "Linking with system SFML libraries")
+    target_sources(PixelRPG PRIVATE
+        src/visual_wrapper.cpp
+    )
+
+    target_link_libraries(PixelRPG PRIVATE
+        sfml-graphics
+        sfml-window
+        sfml-system
+        sfml-audio
+    )
+else()
+    message(STATUS "Building headless (no GUI)")
+    target_compile_definitions(PixelRPG PRIVATE PIXELRPG_HEADLESS)
+endif()

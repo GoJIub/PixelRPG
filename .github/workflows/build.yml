@@ -1,0 +1,53 @@
+name: Build PixelRPG
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # ---------- Dependencies ----------
+    - name: Install SFML (Linux)
+      if: runner.os == 'Linux'
+      run: sudo apt update && sudo apt install -y libsfml-dev
+
+    - name: Install SFML (macOS)
+      if: runner.os == 'macOS'
+      run: brew install sfml
+
+    - name: Install SFML (Windows)
+      if: runner.os == 'Windows'
+      run: vcpkg install sfml
+
+    # ---------- Build ----------
+    - name: Configure
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build --config Release
+
+    # ---------- Package ----------
+    - name: Package
+      shell: bash
+      run: |
+        mkdir dist
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          cp build/Release/PixelRPG.exe dist/
+        else
+          cp build/PixelRPG dist/
+        fi
+
+    # ---------- Upload ----------
+    - name: Upload binaries
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/*
