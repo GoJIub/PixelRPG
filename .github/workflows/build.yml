@@ -28,7 +28,8 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         brew update
-        brew install sfml cmake
+        brew install sfml@2 cmake
+        brew link --force sfml@2
 
     - name: Install CMake (Windows)
       if: runner.os == 'Windows'
