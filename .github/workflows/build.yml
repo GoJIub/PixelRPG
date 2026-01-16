@@ -39,15 +39,13 @@ jobs:
 
     - name: Setup vcpkg on Windows
       if: runner.os == 'Windows'
-      shell: cmd
       run: |
-        if not exist C:\vcpkg (
-          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
-        )
-        C:\vcpkg\bootstrap-vcpkg.bat
-        set VCPKG_ROOT=C:\vcpkg
-        REM Manifest mode: пакеты берутся из vcpkg.json
-        C:\vcpkg\vcpkg install --triplet x64-windows
+        if (-Not (Test-Path C:/vcpkg)) {
+          git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
+          C:/vcpkg/bootstrap-vcpkg.bat
+        }
+        # Ставим SFML 2.5.x (фиксируем стабильную версию)
+        C:/vcpkg/vcpkg install sfml:x64-windows
 
     # ---------- Configure ----------
     - name: Configure
