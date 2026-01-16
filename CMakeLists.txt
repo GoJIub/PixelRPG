@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
 # --- Windows vcpkg toolchain ---
-if(WIN32)
-    set(CMAKE_TOOLCHAIN_FILE "C:/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
+if(WIN32 AND DEFINED ENV{VCPKG_ROOT})
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
 endif()
 
 project(PixelRPG LANGUAGES CXX)
@@ -26,7 +26,7 @@ if (MSVC)
 elseif (APPLE)
     target_compile_options(PixelRPG PRIVATE -Wall -Wextra -Werror=uninitialized)
 else()
-    target_compile_options(PixelRPG PRIVATE -Wall -Wextra -Werror=maybe-uninitialized)
+    target_compile_options(PixelRPG PRIVATE -Wall -Wextra -Werror=uninitialized)
 endif()
 
 # ------------------------------------------------------------
@@ -53,22 +53,29 @@ target_include_directories(PixelRPG PRIVATE
 if(NOT PIXELRPG_HEADLESS)
     message(STATUS "Building with SFML (GUI enabled)")
 
-    # Разрешаем SFML версии 2.5 и выше
-    find_package(SFML REQUIRED COMPONENTS graphics window system audio)
+    # Ищем SFML без компонента, чтобы корректно работало с 2.x и 3.x
+    find_package(SFML REQUIRED)
 
-    # visual wrapper
+    # Добавляем визуальный модуль
     target_sources(PixelRPG PRIVATE src/visual_wrapper.cpp)
 
-    target_link_libraries(PixelRPG PRIVATE
-        sfml-graphics
-        sfml-window
-        sfml-system
-        sfml-audio
-    )
-
-    # Для Windows + vcpkg auto-link
-    if(MSVC AND DEFINED ENV{VCPKG_ROOT})
-        set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
+    # Подключаем библиотеки SFML в зависимости от версии
+    if(SFML_VERSION VERSION_LESS "3.0")
+        # SFML 2.x
+        target_link_libraries(PixelRPG PRIVATE
+            sfml-graphics
+            sfml-window
+            sfml-system
+            sfml-audio
+        )
+    else()
+        # SFML 3.x
+        target_link_libraries(PixelRPG PRIVATE
+            SFML::Graphics
+            SFML::Window
+            SFML::System
+            SFML::Audio
+        )
     endif()
 else()
     message(STATUS "Building headless (no GUI)")
