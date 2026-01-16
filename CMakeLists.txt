@@ -67,6 +67,7 @@ if(NOT PIXELRPG_HEADLESS)
         )
     elseif(APPLE)
         # macOS (Homebrew SFML 3.x)
+        set(SFML_DIR "/opt/homebrew/lib/cmake/SFML")
         find_package(SFML REQUIRED)
         target_link_libraries(PixelRPG PRIVATE
             SFML::Graphics
