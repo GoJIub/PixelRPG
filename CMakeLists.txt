@@ -53,15 +53,9 @@ target_include_directories(PixelRPG PRIVATE
 if(NOT PIXELRPG_HEADLESS)
     message(STATUS "Building with SFML (GUI enabled)")
 
-    # Ищем SFML без компонента, чтобы корректно работало с 2.x и 3.x
-    find_package(SFML REQUIRED)
-
-    # Добавляем визуальный модуль
-    target_sources(PixelRPG PRIVATE src/visual_wrapper.cpp)
-
-    # Подключаем библиотеки SFML в зависимости от версии
-    if(SFML_VERSION VERSION_LESS "3.0")
-        # SFML 2.x
+    # На Linux/apt нужно указывать компоненты явно
+    if(UNIX AND NOT APPLE)
+        find_package(SFML 2.5 REQUIRED COMPONENTS graphics window system audio)
         target_link_libraries(PixelRPG PRIVATE
             sfml-graphics
             sfml-window
@@ -69,13 +63,27 @@ if(NOT PIXELRPG_HEADLESS)
             sfml-audio
         )
     else()
-        # SFML 3.x
-        target_link_libraries(PixelRPG PRIVATE
-            SFML::Graphics
-            SFML::Window
-            SFML::System
-            SFML::Audio
-        )
+        # Windows/macOS — универсальный find_package
+        find_package(SFML REQUIRED)
+        target_sources(PixelRPG PRIVATE src/visual_wrapper.cpp)
+
+        if(SFML_VERSION VERSION_LESS "3.0")
+            # SFML 2.x
+            target_link_libraries(PixelRPG PRIVATE
+                sfml-graphics
+                sfml-window
+                sfml-system
+                sfml-audio
+            )
+        else()
+            # SFML 3.x
+            target_link_libraries(PixelRPG PRIVATE
+                SFML::Graphics
+                SFML::Window
+                SFML::System
+                SFML::Audio
+            )
+        endif()
     endif()
 else()
     message(STATUS "Building headless (no GUI)")
