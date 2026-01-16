@@ -46,8 +46,7 @@ if(NOT PIXELRPG_HEADLESS)
     message(STATUS "Building with SFML (GUI enabled)")
 
     # Разрешаем SFML версии 2.5 и выше
-    set(SFML_MIN_VERSION "2.5")
-    find_package(SFML ${SFML_MIN_VERSION} REQUIRED COMPONENTS graphics window system audio)
+    find_package(SFML 2.5...3 REQUIRED COMPONENTS graphics window system audio)
 
     # visual wrapper
     target_sources(PixelRPG PRIVATE src/visual_wrapper.cpp)
