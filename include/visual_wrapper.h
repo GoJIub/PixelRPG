@@ -4,13 +4,14 @@
 #include <memory>
 #include <vector>
 #include <mutex>
+#include <condition_variable>
 #include <deque>
 #include <chrono>
 
 // Типы визуальных эффектов
 enum class EffectType {
     Kill,        // Взрыв частиц
-    Hurt,      // Желтая вспышка
+    Hurt,        // Жёлтая вспышка
     Escape,      // Зелёные следы
     Heal         // Голубое сияние
 };
@@ -115,10 +116,11 @@ private:
     sf::Clock clock;
     sf::Clock frameClock;  // Для delta time
     
+    sf::Texture bearTexture;
+    sf::Texture dragonTexture;
+    sf::Texture druidTexture;
     sf::Texture orcTexture;
     sf::Texture squirrelTexture;
-    sf::Texture bearTexture;
-    sf::Texture druidTexture;
     sf::Texture backgroundTexture;
     
     sf::Text interactionText;
@@ -133,10 +135,14 @@ private:
     
     std::string lastInteractionMessage;
     sf::Time messageDisplayTime;
+
+    std::atomic<bool>* paused;  // Pointer to external paused
+    std::mutex* cv_mtx_ptr = nullptr;  // Указатель на cv_mtx из InteractionManager
+    std::condition_variable* effects_cv_ptr = nullptr;  // Указатель на effects_cv
+    std::atomic<bool>* running_ptr = nullptr;
     
-    void createDefaultTextures();
+    void createPixelArtTextures();
     sf::Color getColorForNPC(NPCType type) const;
-    void drawHealthBar(float screen_x, float screen_y, int hp, int maxHp);
     
     // Рендеринг эффектов
     void renderEffects(const std::deque<VisualEffect>& effects, float scaleX, float scaleY);
@@ -147,6 +153,9 @@ private:
     void drawHurtEffect(float x, float y, float progress);
     void drawEscapeEffect(float x, float y, float progress);
     void drawHealEffect(float x, float y, float progress);
+    
+    // Отрисовка полоски здоровья
+    void drawHealthBar(float screen_x, float screen_y, int hp, int maxHp);
 
 public:
     VisualWrapper(int width = 800, int height = 600);
@@ -155,7 +164,10 @@ public:
     bool initialize();
     void setNPCs(std::vector<std::shared_ptr<NPC>>& npcs_list);
     void setInteractionMessage(const std::string& message);
+    void setEffectsCVPtr(std::condition_variable* cv, std::mutex* mtx);
     void run();
+    void setPausedPtr(std::atomic<bool>* p);
+    void setRunningPtr(std::atomic<bool>* r);
     void handleEvents();
     void render();
     bool isWindowOpen() const;
