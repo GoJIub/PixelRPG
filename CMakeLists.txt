@@ -66,14 +66,13 @@ if(NOT PIXELRPG_HEADLESS)
             sfml-audio
         )
     elseif(APPLE)
-        # macOS (Homebrew SFML 3.x)
         set(SFML_DIR "/opt/homebrew/lib/cmake/SFML" CACHE PATH "Path to SFMLConfig.cmake")
         find_package(SFML REQUIRED COMPONENTS graphics window system audio)
         target_link_libraries(PixelRPG PRIVATE
-            SFML::Graphics
-            SFML::Window
-            SFML::System
-            SFML::Audio
+            sfml-graphics
+            sfml-window
+            sfml-system
+            sfml-audio
         )
     else()
         # Windows + vcpkg (SFML 3.x)
