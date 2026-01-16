@@ -1,54 +1,55 @@
 name: Build PixelRPG
-
 on:
   push:
     branches: [ main ]
     tags: [ "v*" ]
-
 jobs:
   build:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-
     runs-on: ${{ matrix.os }}
-
+    env:
+      VCPKG_ROOT: ${{ runner.temp }}/vcpkg
     steps:
     - uses: actions/checkout@v4
-
-    # ---------- Dependencies ----------
-    - name: Install SFML (Linux)
-      if: runner.os == 'Linux'
-      run: sudo apt update && sudo apt install -y libsfml-dev
-
-    - name: Install SFML (macOS)
-      if: runner.os == 'macOS'
-      run: brew install sfml
-
-    - name: Install SFML (Windows)
-      if: runner.os == 'Windows'
-      run: vcpkg install sfml
-
+    # ---------- Setup vcpkg ----------
+    - name: Setup vcpkg
+      shell: bash
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          $VCPKG_ROOT/bootstrap-vcpkg.bat -disableMetrics
+        else
+          $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics
+        fi
+    # ---------- Install Dependencies ----------
+    - name: Install SFML via vcpkg
+      shell: bash
+      run: |
+        $VCPKG_ROOT/vcpkg install
     # ---------- Build ----------
     - name: Configure
-      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
-
+      shell: bash
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
     - name: Build
-      run: cmake --build build --config Release
-
+      shell: bash
+      run: |
+        cmake --build build --config Release
     # ---------- Package ----------
     - name: Package
       shell: bash
       run: |
         mkdir dist
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
           cp build/Release/PixelRPG.exe dist/
         else
           cp build/PixelRPG dist/
         fi
-
     # ---------- Upload ----------
     - name: Upload binaries
+      if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v1
       with:
         files: dist/*

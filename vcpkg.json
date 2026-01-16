@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "dependencies": [
+    "sfml"
+  ],
+  "overrides": [
+    {
+      "name": "sfml",
+      "version": "2.6.1",
+      "port-version": 1
+    }
+  ]
+}
