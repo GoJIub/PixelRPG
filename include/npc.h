@@ -6,6 +6,8 @@
 #include <shared_mutex>
 #include <chrono>
 
+struct NPC;
+
 struct Bear;
 struct Dragon;
 struct Druid;
@@ -39,8 +41,8 @@ struct IInteractionVisitor {
 };
 
 struct IInteractionObserver {
-    virtual void on_interaction(const std::shared_ptr<class NPC> &actor,
-                          const std::shared_ptr<class NPC> &target,
+    virtual void on_interaction(const std::shared_ptr<NPC> &actor,
+                          const std::shared_ptr<NPC> &target,
                           InteractionOutcome outcome) = 0;
     virtual ~IInteractionObserver() = default;
 };

@@ -5,6 +5,9 @@
 #include <mutex>
 #include <random>
 
+#include <thread>
+#include <chrono>
+
 // Singleton implementation
 std::shared_ptr<IInteractionObserver> VisualObserver::get() {
     static VisualObserver instance;

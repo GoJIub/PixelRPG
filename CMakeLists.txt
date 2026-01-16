@@ -15,8 +15,10 @@ add_executable(PixelRPG)
 target_compile_features(PixelRPG PRIVATE cxx_std_20)
 
 # Compile flags
-if(MSVC)
+if (MSVC)
     target_compile_options(PixelRPG PRIVATE /W4 /WX)
+elseif (APPLE)
+    target_compile_options(PixelRPG PRIVATE -Wall -Wextra -Werror=uninitialized)
 else()
     target_compile_options(PixelRPG PRIVATE -Wall -Wextra -Werror=maybe-uninitialized)
 endif()
