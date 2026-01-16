@@ -1,8 +1,9 @@
 name: Build PixelRPG
 
 on:
-  release:
-    types: [created]
+  push:
+    branches: [ main ]
+    tags: [ "v*" ]
 
 jobs:
   build:
