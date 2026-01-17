@@ -149,22 +149,22 @@ int main(int argc, char** argv) {
     std::thread visual_thread;
     
     if (!headless) {
-        visualWrapper = std::make_unique<VisualWrapper>(800, 600);
+        visual_thread = std::thread([&visualWrapper]() {
+            visualWrapper = std::make_unique<VisualWrapper>(800, 600);
         
-        if (!visualWrapper->initialize()) {
-            std::cerr << "Failed to initialize visual wrapper\n";
-        } else {
-            visualWrapper->setNPCs(npcs);
-            visualWrapper->setPausedPtr(&paused);
-            visualWrapper->setRunningPtr(&running);
-            visualWrapper->setEffectsCVPtr(
-                InteractionManager::instance().getEffectsCV(),
-                InteractionManager::instance().getCVMtx()
-            );
-            visual_thread = std::thread([&visualWrapper]() {
+            if (!visualWrapper->initialize()) {
+                std::cerr << "Failed to initialize visual wrapper\n";
+            } else {
+                visualWrapper->setNPCs(npcs);
+                visualWrapper->setPausedPtr(&paused);
+                visualWrapper->setRunningPtr(&running);
+                visualWrapper->setEffectsCVPtr(
+                    InteractionManager::instance().getEffectsCV(),
+                    InteractionManager::instance().getCVMtx()
+                );
                 visualWrapper->run();
-            });
-        }
+            }
+        });
     }
 #endif
     
