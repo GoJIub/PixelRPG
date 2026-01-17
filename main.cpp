@@ -145,9 +145,6 @@ int main(int argc, char** argv) {
 
 #ifndef PIXELRPG_HEADLESS
     // ---- Visual wrapper thread ----
-    std::unique_ptr<VisualWrapper> visualWrapper;  // Отложенное создание
-    std::thread visual_thread;
-    
     if (!headless) {
         visual_thread = std::thread([&visualWrapper]() {
             visualWrapper = std::make_unique<VisualWrapper>(800, 600);
