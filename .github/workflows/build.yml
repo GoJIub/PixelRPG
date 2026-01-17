@@ -76,7 +76,7 @@ jobs:
 
     # ---------- Upload ----------
     - name: Upload binaries
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
+      uses: actions/upload-artifact@v3
       with:
-        files: dist/*
+        name: PixelRPG-binaries-${{ matrix.os }}
+        path: dist/
