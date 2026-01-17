@@ -75,23 +75,31 @@ if(NOT PIXELRPG_HEADLESS)
             sfml-audio
         )
     else()
-        # Windows + vcpkg (SFML 3.x)
-        find_package(SFML REQUIRED COMPONENTS graphics window system audio)
-        if(SFML_VERSION VERSION_LESS "3.0")
-            # SFML 2.x
-            target_link_libraries(PixelRPG PRIVATE
-                sfml-graphics
-                sfml-window
-                sfml-system
-                sfml-audio
-            )
-        else()
-            # SFML 3.x
+        # Windows + vcpkg
+        # Пробуем найти SFML любой версии
+        find_package(SFML COMPONENTS Graphics Window System Audio QUIET)
+        
+        if(NOT SFML_FOUND)
+            # Если не нашли с заглавными буквами (SFML 3.x), пробуем SFML 2.x
+            find_package(SFML REQUIRED COMPONENTS graphics window system audio)
+        endif()
+        
+        # Определяем версию и линкуем соответственно
+        if(SFML_VERSION VERSION_GREATER_EQUAL "3.0")
+            message(STATUS "Found SFML ${SFML_VERSION} (3.x style)")
             target_link_libraries(PixelRPG PRIVATE
                 SFML::Graphics
                 SFML::Window
                 SFML::System
                 SFML::Audio
+            )
+        else()
+            message(STATUS "Found SFML ${SFML_VERSION} (2.x style)")
+            target_link_libraries(PixelRPG PRIVATE
+                sfml-graphics
+                sfml-window
+                sfml-system
+                sfml-audio
             )
         endif()
     endif()
