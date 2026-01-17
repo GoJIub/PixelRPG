@@ -45,8 +45,10 @@ jobs:
           git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
           C:/vcpkg/bootstrap-vcpkg.bat
         }
-        # Устанавливаем SFML в classic mode
-        C:/vcpkg/vcpkg install sfml:x64-windows
+        # Устанавливаем SFML 2.5.1 (последняя версия 2.x)
+        C:/vcpkg/vcpkg install sfml:x64-windows --head
+        # Или принудительно указываем версию
+        # C:/vcpkg/vcpkg install "sfml[2]":x64-windows
 
     # ---------- Configure ----------
     - name: Configure
