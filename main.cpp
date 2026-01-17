@@ -144,8 +144,11 @@ int main(int argc, char** argv) {
     });
 
 #ifndef PIXELRPG_HEADLESS
-if (!headless) {
     std::thread visual_thread;
+#endif
+
+#ifndef PIXELRPG_HEADLESS
+if (!headless) {
     visual_thread = std::thread([&]() {
         VisualWrapper visualWrapper(800, 600);
 
