@@ -145,38 +145,34 @@ VisualWrapper::VisualWrapper(int width, int height)
 bool VisualWrapper::initialize() {
     std::cout << "Initializing VisualWrapper..." << std::endl;
     
-    sf::Font font;
     bool loaded = false;
 
-    #ifdef _WIN32
-        // Windows: попробуем стандартный Arial
-        loaded = font.loadFromFile("C:/Windows/Fonts/arial.ttf");
-    #elif __APPLE__
-        // macOS: системный шрифт San Francisco
-        loaded = font.loadFromFile("/System/Library/Fonts/SFNS.ttf");
-    #else
-        // Linux: DejaVu Sans
-        loaded = font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
-    #endif
+#ifdef _WIN32
+    // Windows: попробуем стандартный Arial
+    loaded = this->font.loadFromFile("C:/Windows/Fonts/arial.ttf");
+#elif __APPLE__
+    // macOS: системный шрифт San Francisco
+    loaded = this->font.loadFromFile("/System/Library/Fonts/SFNS.ttf");
+#else
+    // Linux: DejaVu Sans
+    loaded = this->font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+#endif
 
     // fallback на локальный шрифт
     if (!loaded) {
-        loaded = font.loadFromFile("assets/fonts/LiberationSans-Regular.ttf");
+        loaded = this->font.loadFromFile("assets/fonts/LiberationSans-Regular.ttf");
     }
 
     if (!loaded) {
-        std::cerr << "Warning: Could not load any font!" << std::endl;
-        // Если SFML 3, можно взять встроенный шрифт
-    #if SFML_VERSION_MAJOR >= 3
-        font = sf::Font::getDefaultFont();
-    #endif
+        std::cerr << "Error: Could not load any font! Text rendering will fail." << std::endl;
+    } else {
+        std::cout << "Font loaded successfully" << std::endl;
     }
-    std::cout << "Font loaded successfully" << std::endl;
 
     createPixelArtTextures();
     std::cout << "Pixel art textures created successfully" << std::endl;
 
-    interactionText.setFont(font);
+    interactionText.setFont(this->font);  // Now uses member font
     interactionText.setCharacterSize(16);
     interactionText.setFillColor(sf::Color::White);
     interactionText.setPosition(10, 10);
@@ -187,7 +183,7 @@ bool VisualWrapper::initialize() {
     interactionBox.setOutlineColor(sf::Color::White);
     interactionBox.setOutlineThickness(1);
     
-    statsText.setFont(font);
+    statsText.setFont(this->font);
     statsText.setCharacterSize(14);
     statsText.setFillColor(sf::Color::White);
     statsText.setPosition(10, window.getSize().y - 40);

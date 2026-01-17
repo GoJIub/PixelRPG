@@ -31,22 +31,20 @@ int main(int argc, char** argv) {
     constexpr int MAX_DRAGONS = 1;
 
     int dragonCount = 0;
-
     for (int i = 0; i < NPC_COUNT; ++i) {
         NPCType t = random_type();
-    
         while (t == NPCType::Dragon && dragonCount >= MAX_DRAGONS)
             t = random_type();
-        
-        if (t == NPCType::Dragon)
-            dragonCount++;
-        
+        if (t == NPCType::Dragon) dragonCount++;
+
         std::string name;
-        if (t == NPCType::Bear)          name = "Bear_" + std::to_string(i+1);
-        else if (t == NPCType::Dragon)   name = "Dragon_" + std::to_string(i+1);
-        else if (t == NPCType::Druid)    name = "Druid_" + std::to_string(i+1);
-        else if (t == NPCType::Orc)      name = "Orc_" + std::to_string(i+1);
-        else if (t == NPCType::Squirrel) name = "Squirrel_" + std::to_string(i+1);
+        switch(t) {
+            case NPCType::Bear: name = "Bear_" + std::to_string(i+1); break;
+            case NPCType::Dragon: name = "Dragon_" + std::to_string(i+1); break;
+            case NPCType::Druid: name = "Druid_" + std::to_string(i+1); break;
+            case NPCType::Orc: name = "Orc_" + std::to_string(i+1); break;
+            case NPCType::Squirrel: name = "Squirrel_" + std::to_string(i+1); break;
+        }
 
         auto npc = createNPC(
             t,
@@ -62,117 +60,97 @@ int main(int argc, char** argv) {
 
     print_all(npcs);
 
-#ifndef PIXELRPG_HEADLESS
-    // auto visualObserver = VisualObserver::get();
-    // if (!headless) {
-    //     for (auto& npc : npcs)
-    //         npc->subscribe(visualObserver);
-    // }
-#endif
-        
     std::atomic<bool> running{true};
-    std::atomic<bool> paused{false};  // Для паузы
-    std::promise<void> stop_promise;  // Для graceful shutdown
+    std::atomic<bool> paused{false};
+    std::promise<void> stop_promise;
     std::future<void> stop_future = stop_promise.get_future();
-    
+
     // ---- Interaction thread ----
     std::thread interaction_thread(std::ref(InteractionManager::instance()));
-    
-    // ---- Move + detect ----
+
+    // ---- Move + detect thread ----
     std::thread move_thread([&]() {
         while (running) {
             if (paused) {
                 std::this_thread::sleep_for(100ms);
                 continue;
             }
-            
+
             // Двигаем NPC
             for (auto& npc : npcs) {
                 if (!npc->is_alive()) continue;
-    
                 int d = npc->get_move_distance();
                 npc->move(
-                    std::rand() % (2 * d + 1) - d,
-                    std::rand() % (2 * d + 1) - d,
-                    MAP_X,
-                    MAP_Y
+                    std::rand() % (2*d+1) - d,
+                    std::rand() % (2*d+1) - d,
+                    MAP_X, MAP_Y
                 );
             }
-    
-            // Spatial partitioning: строим grid
-            std::unordered_map<std::pair<int, int>, std::vector<std::shared_ptr<NPC>>, PairHash> grid;
+
+            // Grid и взаимодействия
+            std::unordered_map<std::pair<int,int>, std::vector<std::shared_ptr<NPC>>, PairHash> grid;
             for (auto& npc : npcs) {
                 if (!npc->is_alive()) continue;
                 grid[npc->grid_cell].push_back(npc);
             }
-    
-            // Проверяем взаимодействия только в клетке и соседях
+
             for (const auto& [cell, cell_npcs] : grid) {
                 // Внутри клетки
-                for (size_t i = 0; i < cell_npcs.size(); ++i) {
-                    for (size_t j = i + 1; j < cell_npcs.size(); ++j) {
-                        int maxDist = std::max(cell_npcs[i]->get_interaction_distance(), cell_npcs[j]->get_interaction_distance());
-                        if (cell_npcs[i]->is_close(cell_npcs[j], maxDist)) {
+                for (size_t i=0; i<cell_npcs.size(); ++i)
+                    for (size_t j=i+1; j<cell_npcs.size(); ++j) {
+                        int maxDist = std::max(cell_npcs[i]->get_interaction_distance(),
+                                               cell_npcs[j]->get_interaction_distance());
+                        if (cell_npcs[i]->is_close(cell_npcs[j], maxDist))
                             InteractionManager::instance().push({cell_npcs[i], cell_npcs[j]});
-                        }
                     }
-                }
-    
-                // Соседние клетки (8 направлений, избегаем double-counting)
-                std::array<std::pair<int, int>, 4> neighbors = {{
-                    {1, 0}, {1, 1}, {0, 1}, {-1, 1}  // Только "правые/верхние" для избежания дубликатов
-                }};
-                for (const auto& offset : neighbors) {
-                    std::pair<int, int> neigh_cell = {cell.first + offset.first, cell.second + offset.second};
+
+                // Соседние клетки (4 направления)
+                std::array<std::pair<int,int>,4> neighbors = {{{1,0},{1,1},{0,1},{-1,1}}};
+                for (auto offset : neighbors) {
+                    auto neigh_cell = std::pair<int,int>{cell.first+offset.first, cell.second+offset.second};
                     auto it = grid.find(neigh_cell);
                     if (it != grid.end()) {
-                        const auto& neigh_npcs = it->second;
-                        for (const auto& npc1 : cell_npcs) {
-                            for (const auto& npc2 : neigh_npcs) {
+                        for (auto& npc1 : cell_npcs)
+                            for (auto& npc2 : it->second) {
                                 int maxDist = std::max(npc1->get_interaction_distance(), npc2->get_interaction_distance());
-                                if (npc1->is_close(npc2, maxDist)) {
+                                if (npc1->is_close(npc2, maxDist))
                                     InteractionManager::instance().push({npc1, npc2});
-                                }
                             }
-                        }
                     }
                 }
             }
-    
+
             std::this_thread::sleep_for(500ms);
         }
     });
 
+#ifndef PIXELRPG_HEADLESS
+    // ---- Visual wrapper в main thread ----
     VisualWrapper visualWrapper(800, 600);
 
     if (!visualWrapper.initialize()) {
         std::cerr << "Failed to initialize VisualWrapper\n";
-        return 1;
+        running = false;
+    } else { 
+        visualWrapper.setNPCs(npcs);
+        visualWrapper.setPausedPtr(&paused);
+        visualWrapper.setRunningPtr(&running);
+        visualWrapper.setEffectsCVPtr(
+            InteractionManager::instance().getEffectsCV(),
+            InteractionManager::instance().getCVMtx()
+        );
+        visualWrapper.run(); // блокирует main thread, безопасно для SFML
     }
+#endif
 
-    visualWrapper.setNPCs(npcs);
-    visualWrapper.setPausedPtr(&paused);
-    visualWrapper.setRunningPtr(&running);
-    visualWrapper.setEffectsCVPtr(
-        InteractionManager::instance().getEffectsCV(),
-        InteractionManager::instance().getCVMtx()
-    );
-
-    // --- основной графический цикл в main thread ---
-    visualWrapper.run();
-    
-    // ---- Game duration ----
-    std::this_thread::sleep_for(30s);
+    // ---- Game shutdown ----
     running = false;
-    stop_promise.set_value();  // Сигнал остановки
-    
-    // Ждем с timeout (например, 5s)
-    if (stop_future.wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
-        std::cerr << "Threads timeout on shutdown" << std::endl;
-    }
-    
-    move_thread.join();
+    stop_promise.set_value();
 
+    if (stop_future.wait_for(5s) == std::future_status::timeout)
+        std::cerr << "Threads timeout on shutdown" << std::endl;
+
+    move_thread.join();
     InteractionManager::instance().stop();
     interaction_thread.join();
 
