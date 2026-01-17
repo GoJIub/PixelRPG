@@ -22,7 +22,7 @@ bool hasFlag(int argc, char* argv[], const std::string& flag) {
 int main(int argc, char** argv) {
     bool headless = hasFlag(argc, argv, "--headless");
 
-    auto consoleObs = ConsoleObserver::get();
+    // auto consoleObs = ConsoleObserver::get();
     auto fileObs = FileObserver::get("log.txt");
 
     // ---- NPCs ----
@@ -53,10 +53,18 @@ int main(int argc, char** argv) {
             random_coord(0, MAP_Y)
         );
 
-        npc->subscribe(consoleObs);
+        // npc->subscribe(consoleObs);
         npc->subscribe(fileObs);
         npcs.push_back(npc);
     }
+
+#ifndef PIXELRPG_HEADLESS
+    auto visualObserver = VisualObserver::get();
+    if (!headless) {
+        for (auto& npc : npcs)
+            npc->subscribe(visualObserver);
+    }
+#endif
 
     print_all(npcs);
 
