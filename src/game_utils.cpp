@@ -499,7 +499,7 @@ void draw_map(const std::vector<std::shared_ptr<NPC>>& list) {
 // ---------------- Функции рандома ----------------
 NPCType random_type() {
     static std::mt19937 gen(std::random_device{}());
-    std::uniform_int_distribution<int> dist(1, 4);
+    std::uniform_int_distribution<int> dist(1, static_cast<int>(NPCType::Count) - 1);
     return static_cast<NPCType>(dist(gen));
 }
 

@@ -132,33 +132,62 @@ int main(int argc, char** argv) {
         }
     });
 
-#ifndef PIXELRPG_HEADLESS
-    // ---- Visual wrapper в main thread ----
-    VisualWrapper visualWrapper(800, 600);
+    std::thread timer_thread([&]() {
+        auto start = std::chrono::steady_clock::now();
+        const auto duration = 30s;
 
-    if (!visualWrapper.initialize()) {
-        std::cerr << "Failed to initialize VisualWrapper\n";
-        running = false;
-    } else { 
-        visualWrapper.setNPCs(npcs);
-        visualWrapper.setPausedPtr(&paused);
-        visualWrapper.setRunningPtr(&running);
-        visualWrapper.setEffectsCVPtr(
-            InteractionManager::instance().getEffectsCV(),
-            InteractionManager::instance().getCVMtx()
-        );
-        visualWrapper.run(); // блокирует main thread, безопасно для SFML
+        while (running) {
+            auto elapsed = std::chrono::steady_clock::now() - start;
+            if (elapsed >= duration) {
+                std::cout << "[DEBUG] Timer expired (30s). Shutting down..." << std::endl;
+                running = false;
+                break;
+            }
+            std::this_thread::sleep_for(100ms);
+        }
+    });
+
+#ifndef PIXELRPG_HEADLESS
+    // ---- Visual wrapper thread ----
+    std::thread visual_thread;
+    if (!headless) {
+        visual_thread = std::thread([&]() {
+            VisualWrapper visualWrapper(800, 600);
+            if (!visualWrapper.initialize()) {
+                std::cerr << "Failed to initialize visual wrapper\n";
+                return;
+            }
+            visualWrapper.setNPCs(npcs);
+            visualWrapper.setPausedPtr(&paused);
+            visualWrapper.setRunningPtr(&running);
+            visualWrapper.setEffectsCVPtr(
+                InteractionManager::instance().getEffectsCV(),
+                InteractionManager::instance().getCVMtx()
+            );
+            visualWrapper.run();
+        });
+        
+        visual_thread.join();
     }
 #endif
-
-    // ---- Game shutdown ----
+    
+    // ---- Game duration ----
     running = false;
-    stop_promise.set_value();
-
-    if (stop_future.wait_for(5s) == std::future_status::timeout)
+    stop_promise.set_value();  // Сигнал остановки
+    
+    // Ждем с timeout (например, 5s)
+    if (stop_future.wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
         std::cerr << "Threads timeout on shutdown" << std::endl;
-
+    }
+    
+    timer_thread.join();
     move_thread.join();
+
+#ifndef PIXELRPG_HEADLESS
+    if (!headless && visual_thread.joinable())
+        visual_thread.join();
+#endif
+
     InteractionManager::instance().stop();
     interaction_thread.join();
 

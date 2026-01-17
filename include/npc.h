@@ -20,7 +20,8 @@ enum class NPCType {
     Dragon = 2,
     Druid = 3,
     Orc = 4,
-    Squirrel = 5
+    Squirrel = 5,
+    Count
 };
 
 enum class InteractionOutcome {

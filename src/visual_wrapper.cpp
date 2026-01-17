@@ -683,9 +683,12 @@ void VisualWrapper::handleEvents() {
     while (window.pollEvent(event)) {
         if (event.type == sf::Event::Closed) {
             window.close();
+            if (running_ptr) {  // Проверяем, чтобы избежать null-дереференса
+                *running_ptr = false;  // Завершаем все потоки
+            }
         }
         if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Space) {
-            if (paused) *paused = !*paused;
+            if (paused) *paused = !*paused;  // Уже есть, оставляем
         }
     }
 }
