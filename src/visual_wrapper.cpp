@@ -124,7 +124,6 @@ void VisualObserver::updateParticles(float dt) {
 }
 
 // ========== VisualWrapper ==========
-
 VisualWrapper::VisualWrapper(int width, int height) 
     : npcs(nullptr),
       messageDisplayTime(sf::Time::Zero) {
