@@ -73,6 +73,7 @@ if(NOT PIXELRPG_HEADLESS)
             sfml-window
             sfml-system
             sfml-audio
+            stb
         )
     elseif(APPLE)
         # macOS - автоопределение пути Homebrew
