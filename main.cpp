@@ -2,6 +2,7 @@
 #include "include/game_utils.h"
 #include "include/visual_wrapper.h"
 
+#include <memory>
 #include <array>
 #include <thread>
 #include <atomic>
@@ -144,22 +145,24 @@ int main(int argc, char** argv) {
 
 #ifndef PIXELRPG_HEADLESS
     // ---- Visual wrapper thread ----
-    VisualWrapper visualWrapper(800, 600);
-
+    std::unique_ptr<VisualWrapper> visualWrapper;  // Отложенное создание
     std::thread visual_thread;
+    
     if (!headless) {
-        if (!visualWrapper.initialize()) {
+        visualWrapper = std::make_unique<VisualWrapper>(800, 600);
+        
+        if (!visualWrapper->initialize()) {
             std::cerr << "Failed to initialize visual wrapper\n";
         } else {
-            visualWrapper.setNPCs(npcs);
-            visualWrapper.setPausedPtr(&paused);
-            visualWrapper.setRunningPtr(&running);
-            visualWrapper.setEffectsCVPtr(
+            visualWrapper->setNPCs(npcs);
+            visualWrapper->setPausedPtr(&paused);
+            visualWrapper->setRunningPtr(&running);
+            visualWrapper->setEffectsCVPtr(
                 InteractionManager::instance().getEffectsCV(),
                 InteractionManager::instance().getCVMtx()
             );
             visual_thread = std::thread([&visualWrapper]() {
-                visualWrapper.run();  // блокирующий вызов
+                visualWrapper->run();
             });
         }
     }

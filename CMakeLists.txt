@@ -20,9 +20,18 @@ add_executable(PixelRPG)
 # C++20
 target_compile_features(PixelRPG PRIVATE cxx_std_20)
 
+# RPATH для Linux/macOS - ищем библиотеки в ./lib
+if(UNIX)
+    set_target_properties(PixelRPG PROPERTIES
+        BUILD_RPATH "$ORIGIN/lib"
+        INSTALL_RPATH "$ORIGIN/lib"
+    )
+    set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
+endif()
+
 # Compile flags
 if (MSVC)
-    target_compile_options(PixelRPG PRIVATE /W4)
+    target_compile_options(PixelRPG PRIVATE /W4 /WX)
 elseif (APPLE)
     target_compile_options(PixelRPG PRIVATE -Wall -Wextra -Werror=uninitialized)
 else()
@@ -93,6 +102,8 @@ if(NOT PIXELRPG_HEADLESS)
                 SFML::System
                 SFML::Audio
             )
+            # Добавляем define для условной компиляции
+            target_compile_definitions(PixelRPG PRIVATE SFML_VERSION_3)
         else()
             message(STATUS "Found SFML ${SFML_VERSION} (2.x style)")
             target_link_libraries(PixelRPG PRIVATE

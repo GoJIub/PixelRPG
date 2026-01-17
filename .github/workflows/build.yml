@@ -9,11 +9,23 @@ on:
 permissions:
   contents: write
 
+env:
+  APP_VERSION: ${{ github.ref_name }}
+
 jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            name: linux-x64
+            artifact: PixelRPG-${{ github.ref_name }}-linux-x64.tar.gz
+          - os: windows-latest
+            name: windows-x64
+            artifact: PixelRPG-${{ github.ref_name }}-windows-x64.zip
+          - os: macos-latest
+            name: macos-x64
+            artifact: PixelRPG-${{ github.ref_name }}-macos-x64.tar.gz
 
     runs-on: ${{ matrix.os }}
 
@@ -25,58 +37,169 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libsfml-dev build-essential cmake git
+        sudo apt-get install -y libsfml-dev build-essential cmake git patchelf
 
     - name: Install dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
         brew update
-        brew install sfml@2 cmake
-        brew link --force sfml@2
+        brew install sfml@2 cmake dylibbundler
 
     - name: Setup SFML 2.6 (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        # Скачиваем SFML 2.6.2 - последнюю версию SFML 2.x
         Invoke-WebRequest -Uri "https://github.com/SFML/SFML/releases/download/2.6.2/SFML-2.6.2-windows-vc17-64-bit.zip" -OutFile "sfml.zip"
         Expand-Archive -Path "sfml.zip" -DestinationPath "C:/"
         Rename-Item -Path "C:/SFML-2.6.2" -NewName "sfml"
 
     # ---------- Configure ----------
-    - name: Configure
+    - name: Configure (Linux/macOS)
       if: runner.os != 'Windows'
-      shell: bash
       run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
-    - name: Configure (Windows with GUI)
+    - name: Configure (Windows)
       if: runner.os == 'Windows'
-      shell: bash
       run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSFML_DIR=C:/sfml/lib/cmake/SFML
 
     # ---------- Build ----------
     - name: Build
       run: cmake --build build --config Release
 
-    # ---------- Package ----------
-    - name: Package
-      shell: bash
+    # ---------- Package Linux ----------
+    - name: Package (Linux)
+      if: runner.os == 'Linux'
       run: |
-        mkdir -p dist
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          cp build/Release/PixelRPG.exe dist/
-          # Копируем SFML DLL
-          cp C:/sfml/bin/sfml-graphics-2.dll dist/
-          cp C:/sfml/bin/sfml-window-2.dll dist/
-          cp C:/sfml/bin/sfml-system-2.dll dist/
-          cp C:/sfml/bin/sfml-audio-2.dll dist/
-        else
-          cp build/PixelRPG dist/
-        fi
+        mkdir -p package/PixelRPG
+        cp build/PixelRPG package/PixelRPG/
+        
+        # Собираем ВСЕ зависимости
+        mkdir -p package/PixelRPG/lib
+        ldd build/PixelRPG | grep "=> /" | awk '{print $3}' | while read lib; do
+          if [[ "$lib" == *"libsfml"* ]] || \
+             [[ "$lib" == *"libfreetype"* ]] || \
+             [[ "$lib" == *"libogg"* ]] || \
+             [[ "$lib" == *"libvorbis"* ]] || \
+             [[ "$lib" == *"libFLAC"* ]] || \
+             [[ "$lib" == *"libopenal"* ]]; then
+            cp "$lib" package/PixelRPG/lib/
+          fi
+        done
+        
+        # Исправляем RPATH в бинарнике
+        patchelf --set-rpath '$ORIGIN/lib' package/PixelRPG/PixelRPG
+        
+        # Создаём launcher
+        cat > package/PixelRPG/PixelRPG.sh << 'EOF'
+        #!/bin/bash
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        cd "$SCRIPT_DIR"
+        exec ./PixelRPG "$@"
+        EOF
+        chmod +x package/PixelRPG/PixelRPG.sh
+        
+        # Desktop entry для интеграции с системой
+        cat > package/PixelRPG/pixelrpg.desktop << 'EOF'
+        [Desktop Entry]
+        Type=Application
+        Name=PixelRPG
+        Comment=Pixel Art RPG Battle Simulator
+        Exec=./PixelRPG
+        Icon=pixelrpg
+        Terminal=false
+        Categories=Game;
+        EOF
+        
+        # Копируем README из репозитория
+        cp README.md package/PixelRPG/
+        
+        # Создаём архив
+        cd package
+        tar -czf ../PixelRPG-${{ github.ref_name }}-linux-x64.tar.gz PixelRPG
 
-    # ---------- Upload ----------
-    - name: Upload binaries
+    # ---------- Package macOS ----------
+    - name: Package (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        mkdir -p package/PixelRPG.app/Contents/{MacOS,Resources,Frameworks}
+        
+        # Копируем бинарник
+        cp build/PixelRPG package/PixelRPG.app/Contents/MacOS/
+        
+        # Собираем зависимости с dylibbundler
+        dylibbundler -od -b \
+          -x package/PixelRPG.app/Contents/MacOS/PixelRPG \
+          -d package/PixelRPG.app/Contents/Frameworks/ \
+          -p @executable_path/../Frameworks/
+        
+        # Info.plist
+        cat > package/PixelRPG.app/Contents/Info.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleExecutable</key>
+            <string>PixelRPG</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.pixelrpg.game</string>
+            <key>CFBundleName</key>
+            <string>PixelRPG</string>
+            <key>CFBundleVersion</key>
+            <string>${{ github.ref_name }}</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${{ github.ref_name }}</string>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+        </dict>
+        </plist>
+        EOF
+        
+        # Копируем README из репозитория
+        cp README.md package/
+        
+        # Создаём архив
+        cd package
+        tar -czf ../PixelRPG-${{ github.ref_name }}-macos-x64.tar.gz PixelRPG.app README.md
+
+    # ---------- Package Windows ----------
+    - name: Package (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path package/PixelRPG
+        
+        # Копируем бинарник и DLL
+        Copy-Item build/Release/PixelRPG.exe package/PixelRPG/
+        Copy-Item C:/sfml/bin/sfml-graphics-2.dll package/PixelRPG/
+        Copy-Item C:/sfml/bin/sfml-window-2.dll package/PixelRPG/
+        Copy-Item C:/sfml/bin/sfml-system-2.dll package/PixelRPG/
+        Copy-Item C:/sfml/bin/sfml-audio-2.dll package/PixelRPG/
+        
+        # Копируем README из репозитория
+        Copy-Item README.md package/PixelRPG/
+        
+        # Создаём zip
+        Compress-Archive -Path package/PixelRPG/* -DestinationPath "PixelRPG-${{ github.ref_name }}-windows-x64.zip"
+
+    # ---------- Upload Artifacts ----------
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: PixelRPG-binaries-${{ matrix.os }}
-        path: dist/
+        name: PixelRPG-${{ matrix.name }}
+        path: |
+          PixelRPG-*.tar.gz
+          PixelRPG-*.zip
+        retention-days: 90
+
+    # ---------- GitHub Release ----------
+    - name: Upload to Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          PixelRPG-*.tar.gz
+          PixelRPG-*.zip
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        fail_on_unmatched_files: true
