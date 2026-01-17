@@ -20,20 +20,25 @@ add_executable(PixelRPG)
 # C++20
 target_compile_features(PixelRPG PRIVATE cxx_std_20)
 
-# RPATH для Linux/macOS - ищем библиотеки в ./lib
+# ------------------------------------------------------------
+# RPATH для Linux/macOS
+# ------------------------------------------------------------
 if(UNIX)
     set_target_properties(PixelRPG PROPERTIES
         BUILD_RPATH "$ORIGIN/lib"
         INSTALL_RPATH "$ORIGIN/lib"
+        BUILD_WITH_INSTALL_RPATH TRUE
+        SKIP_BUILD_RPATH FALSE
+        INSTALL_RPATH_USE_LINK_PATH TRUE
     )
     set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 endif()
 
+# ------------------------------------------------------------
 # Compile flags
-if (MSVC)
+# ------------------------------------------------------------
+if(MSVC)
     target_compile_options(PixelRPG PRIVATE /W4)
-elseif (APPLE)
-    target_compile_options(PixelRPG PRIVATE -Wall -Wextra -Werror=uninitialized)
 else()
     target_compile_options(PixelRPG PRIVATE -Wall -Wextra -Werror=uninitialized)
 endif()
@@ -61,41 +66,24 @@ target_include_directories(PixelRPG PRIVATE
 # ------------------------------------------------------------
 if(NOT PIXELRPG_HEADLESS)
     message(STATUS "Building with SFML (GUI enabled)")
-
-    # visual_wrapper.cpp всегда нужен
     target_sources(PixelRPG PRIVATE src/visual_wrapper.cpp)
 
     if(UNIX AND NOT APPLE)
-        # Ubuntu / Linux (SFML 2.x)
         find_package(SFML 2.5 REQUIRED COMPONENTS graphics window system audio)
         target_link_libraries(PixelRPG PRIVATE
             sfml-graphics
             sfml-window
             sfml-system
             sfml-audio
-            stb
         )
+        # ! Важно: НЕ линкуем libstb.so.0 на этапе сборки
     elseif(APPLE)
-        # macOS - автоопределение пути Homebrew
+        # macOS: путь Homebrew
         if(EXISTS "/opt/homebrew/lib/cmake/SFML")
-            # Apple Silicon
-            set(SFML_DIR "/opt/homebrew/lib/cmake/SFML" CACHE PATH "Path to SFMLConfig.cmake")
+            set(SFML_DIR "/opt/homebrew/lib/cmake/SFML" CACHE PATH "")
         elseif(EXISTS "/usr/local/lib/cmake/SFML")
-            # Intel Mac
-            set(SFML_DIR "/usr/local/lib/cmake/SFML" CACHE PATH "Path to SFMLConfig.cmake")
-        else()
-            # Попытка найти через Homebrew prefix
-            execute_process(
-                COMMAND brew --prefix sfml@2
-                OUTPUT_VARIABLE SFML_PREFIX
-                OUTPUT_STRIP_TRAILING_WHITESPACE
-                ERROR_QUIET
-            )
-            if(SFML_PREFIX)
-                set(SFML_DIR "${SFML_PREFIX}/lib/cmake/SFML" CACHE PATH "Path to SFMLConfig.cmake")
-            endif()
+            set(SFML_DIR "/usr/local/lib/cmake/SFML" CACHE PATH "")
         endif()
-        
         find_package(SFML 2 REQUIRED COMPONENTS graphics window system audio)
         target_link_libraries(PixelRPG PRIVATE
             sfml-graphics
@@ -105,53 +93,18 @@ if(NOT PIXELRPG_HEADLESS)
         )
     else()
         # Windows + vcpkg
-        # Пробуем найти SFML любой версии
         find_package(SFML COMPONENTS Graphics Window System Audio QUIET)
-        
         if(NOT SFML_FOUND)
-            # Если не нашли с заглавными буквами (SFML 3.x), пробуем SFML 2.x
             find_package(SFML REQUIRED COMPONENTS graphics window system audio)
         endif()
-        
-        # Определяем версию и линкуем соответственно
-        if(SFML_VERSION VERSION_GREATER_EQUAL "3.0")
-            message(STATUS "Found SFML ${SFML_VERSION} (3.x style)")
-            target_link_libraries(PixelRPG PRIVATE
-                SFML::Graphics
-                SFML::Window
-                SFML::System
-                SFML::Audio
-            )
-            # Добавляем define для условной компиляции
-            target_compile_definitions(PixelRPG PRIVATE SFML_VERSION_3)
-        else()
-            message(STATUS "Found SFML ${SFML_VERSION} (2.x style)")
-            target_link_libraries(PixelRPG PRIVATE
-                sfml-graphics
-                sfml-window
-                sfml-system
-                sfml-audio
-            )
-        endif()
+        target_link_libraries(PixelRPG PRIVATE
+            sfml-graphics
+            sfml-window
+            sfml-system
+            sfml-audio
+        )
     endif()
 else()
     message(STATUS "Building headless (no GUI)")
     target_compile_definitions(PixelRPG PRIVATE PIXELRPG_HEADLESS)
-endif()
-
-# ------------------------------------------------------------
-# RPATH / библиотеки рядом с бинарником (Linux/macOS)
-# ------------------------------------------------------------
-if(UNIX)
-    # Используем ORIGIN для относительного поиска
-    set_target_properties(PixelRPG PROPERTIES
-        BUILD_RPATH "$ORIGIN/lib"
-        INSTALL_RPATH "$ORIGIN/lib"
-        BUILD_WITH_INSTALL_RPATH TRUE
-        SKIP_BUILD_RPATH FALSE
-        INSTALL_RPATH_USE_LINK_PATH TRUE
-    )
-
-    # Опционально: предупреждаем CMake, что используем ORIGIN
-    set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 endif()
