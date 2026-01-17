@@ -76,7 +76,7 @@ if(NOT PIXELRPG_HEADLESS)
         )
     else()
         # Windows + vcpkg (SFML 3.x)
-        find_package(SFML REQUIRED)
+        find_package(SFML REQUIRED COMPONENTS graphics window system audio)
         if(SFML_VERSION VERSION_LESS "3.0")
             # SFML 2.x
             target_link_libraries(PixelRPG PRIVATE
