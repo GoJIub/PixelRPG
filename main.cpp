@@ -2,6 +2,7 @@
 #include "include/game_utils.h"
 #include "include/visual_wrapper.h"
 
+#include <array>
 #include <thread>
 #include <atomic>
 #include <future>

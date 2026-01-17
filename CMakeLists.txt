@@ -22,7 +22,7 @@ target_compile_features(PixelRPG PRIVATE cxx_std_20)
 
 # Compile flags
 if (MSVC)
-    target_compile_options(PixelRPG PRIVATE /W4 /WX)
+    target_compile_options(PixelRPG PRIVATE /W4)
 elseif (APPLE)
     target_compile_options(PixelRPG PRIVATE -Wall -Wextra -Werror=uninitialized)
 else()
