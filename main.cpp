@@ -143,32 +143,23 @@ int main(int argc, char** argv) {
         }
     });
 
-#ifndef PIXELRPG_HEADLESS
-    std::thread visual_thread;
-#endif
+    VisualWrapper visualWrapper(800, 600);
 
-#ifndef PIXELRPG_HEADLESS
-if (!headless) {
-    visual_thread = std::thread([&]() {
-        VisualWrapper visualWrapper(800, 600);
+    if (!visualWrapper.initialize()) {
+        std::cerr << "Failed to initialize VisualWrapper\n";
+        return 1;
+    }
 
-        if (!visualWrapper.initialize()) {
-            std::cerr << "Failed to initialize visual wrapper\n";
-            return;
-        }
+    visualWrapper.setNPCs(npcs);
+    visualWrapper.setPausedPtr(&paused);
+    visualWrapper.setRunningPtr(&running);
+    visualWrapper.setEffectsCVPtr(
+        InteractionManager::instance().getEffectsCV(),
+        InteractionManager::instance().getCVMtx()
+    );
 
-        visualWrapper.setNPCs(npcs);
-        visualWrapper.setPausedPtr(&paused);
-        visualWrapper.setRunningPtr(&running);
-        visualWrapper.setEffectsCVPtr(
-            InteractionManager::instance().getEffectsCV(),
-            InteractionManager::instance().getCVMtx()
-        );
-
-        visualWrapper.run(); // render loop
-    });
-}
-#endif
+    // --- основной графический цикл в main thread ---
+    visualWrapper.run();
     
     // ---- Game duration ----
     std::this_thread::sleep_for(30s);
