@@ -75,8 +75,27 @@ if(NOT PIXELRPG_HEADLESS)
             sfml-audio
         )
     elseif(APPLE)
-        set(SFML_DIR "/opt/homebrew/lib/cmake/SFML" CACHE PATH "Path to SFMLConfig.cmake")
-        find_package(SFML REQUIRED COMPONENTS graphics window system audio)
+        # macOS - автоопределение пути Homebrew
+        if(EXISTS "/opt/homebrew/lib/cmake/SFML")
+            # Apple Silicon
+            set(SFML_DIR "/opt/homebrew/lib/cmake/SFML" CACHE PATH "Path to SFMLConfig.cmake")
+        elseif(EXISTS "/usr/local/lib/cmake/SFML")
+            # Intel Mac
+            set(SFML_DIR "/usr/local/lib/cmake/SFML" CACHE PATH "Path to SFMLConfig.cmake")
+        else()
+            # Попытка найти через Homebrew prefix
+            execute_process(
+                COMMAND brew --prefix sfml@2
+                OUTPUT_VARIABLE SFML_PREFIX
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET
+            )
+            if(SFML_PREFIX)
+                set(SFML_DIR "${SFML_PREFIX}/lib/cmake/SFML" CACHE PATH "Path to SFMLConfig.cmake")
+            endif()
+        endif()
+        
+        find_package(SFML 2 REQUIRED COMPONENTS graphics window system audio)
         target_link_libraries(PixelRPG PRIVATE
             sfml-graphics
             sfml-window

@@ -44,6 +44,14 @@ jobs:
       run: |
         brew update
         brew install sfml@2 cmake dylibbundler
+        brew link --force --overwrite sfml@2
+        
+        # Диагностика - проверяем где установлена SFML
+        echo "SFML location:"
+        ls -la /opt/homebrew/lib/cmake/SFML 2>/dev/null || ls -la /usr/local/lib/cmake/SFML 2>/dev/null || echo "SFML not found in standard locations"
+        
+        # Проверяем pkg-config
+        pkg-config --modversion sfml-all 2>/dev/null || echo "pkg-config sfml-all not available"
 
     - name: Setup SFML 2.6 (Windows)
       if: runner.os == 'Windows'
