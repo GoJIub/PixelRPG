@@ -173,11 +173,6 @@ int main(int argc, char** argv) {
     
     move_thread.join();
 
-#ifndef PIXELRPG_HEADLESS
-    if (!headless && visual_thread.joinable())
-        visual_thread.join();
-#endif
-
     InteractionManager::instance().stop();
     interaction_thread.join();
 
