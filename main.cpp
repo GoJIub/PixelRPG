@@ -144,14 +144,13 @@ int main(int argc, char** argv) {
 
 #ifndef PIXELRPG_HEADLESS
     // ---- Visual wrapper thread ----
+    VisualWrapper visualWrapper(800, 600);
+
     std::thread visual_thread;
     if (!headless) {
-        visual_thread = std::thread([&]() {
-            VisualWrapper visualWrapper(800, 600);
-            if (!visualWrapper.initialize()) {
-                std::cerr << "Failed to initialize visual wrapper\n";
-                return;
-            }
+        if (!visualWrapper.initialize()) {
+            std::cerr << "Failed to initialize visual wrapper\n";
+        } else {
             visualWrapper.setNPCs(npcs);
             visualWrapper.setPausedPtr(&paused);
             visualWrapper.setRunningPtr(&running);
@@ -159,8 +158,10 @@ int main(int argc, char** argv) {
                 InteractionManager::instance().getEffectsCV(),
                 InteractionManager::instance().getCVMtx()
             );
-            visualWrapper.run();
-        });
+            visual_thread = std::thread([&visualWrapper]() {
+                visualWrapper.run();  // блокирующий вызов
+            });
+        }
     }
 #endif
     
