@@ -145,12 +145,31 @@ VisualWrapper::VisualWrapper(int width, int height)
 bool VisualWrapper::initialize() {
     std::cout << "Initializing VisualWrapper..." << std::endl;
     
-    if (!font.loadFromFile("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf")) {
-        std::cout << "Warning: Could not load font, trying alternative..." << std::endl;
-        if (!font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")) {
-            std::cerr << "Error: Could not load any font!" << std::endl;
-            return false;
-        }
+    sf::Font font;
+    bool loaded = false;
+
+    #ifdef _WIN32
+        // Windows: попробуем стандартный Arial
+        loaded = font.loadFromFile("C:/Windows/Fonts/arial.ttf");
+    #elif __APPLE__
+        // macOS: системный шрифт San Francisco
+        loaded = font.loadFromFile("/System/Library/Fonts/SFNS.ttf");
+    #else
+        // Linux: DejaVu Sans
+        loaded = font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+    #endif
+
+    // fallback на локальный шрифт
+    if (!loaded) {
+        loaded = font.loadFromFile("assets/fonts/LiberationSans-Regular.ttf");
+    }
+
+    if (!loaded) {
+        std::cerr << "Warning: Could not load any font!" << std::endl;
+        // Если SFML 3, можно взять встроенный шрифт
+    #if SFML_VERSION_MAJOR >= 3
+        font = sf::Font::getDefaultFont();
+    #endif
     }
     std::cout << "Font loaded successfully" << std::endl;
 
