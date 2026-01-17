@@ -31,34 +31,25 @@ jobs:
         brew install sfml@2 cmake
         brew link --force sfml@2
 
-    - name: Install CMake (Windows)
-      if: runner.os == 'Windows'
-      uses: lukka/get-cmake@v3.27.0
-      with:
-        cmakeVersion: '3.27.0'
-
-    - name: Setup vcpkg (Windows)
+    - name: Setup SFML 2.6 (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        if (-Not (Test-Path C:/vcpkg)) {
-          git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
-          C:/vcpkg/bootstrap-vcpkg.bat
-        }
-        # Устанавливаем SFML 2.5.1 (последняя версия 2.x)
-        C:/vcpkg/vcpkg install sfml:x64-windows --head
-        # Или принудительно указываем версию
-        # C:/vcpkg/vcpkg install "sfml[2]":x64-windows
+        # Скачиваем SFML 2.6.2 - последнюю версию SFML 2.x
+        Invoke-WebRequest -Uri "https://github.com/SFML/SFML/releases/download/2.6.2/SFML-2.6.2-windows-vc17-64-bit.zip" -OutFile "sfml.zip"
+        Expand-Archive -Path "sfml.zip" -DestinationPath "C:/"
+        Rename-Item -Path "C:/SFML-2.6.2" -NewName "sfml"
 
     # ---------- Configure ----------
     - name: Configure
+      if: runner.os != 'Windows'
       shell: bash
-      run: |
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
-        else
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
-        fi
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+    - name: Configure (Windows with GUI)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DSFML_DIR=C:/sfml/lib/cmake/SFML
 
     # ---------- Build ----------
     - name: Build
@@ -71,6 +62,11 @@ jobs:
         mkdir -p dist
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           cp build/Release/PixelRPG.exe dist/
+          # Копируем SFML DLL
+          cp C:/sfml/bin/sfml-graphics-2.dll dist/
+          cp C:/sfml/bin/sfml-window-2.dll dist/
+          cp C:/sfml/bin/sfml-system-2.dll dist/
+          cp C:/sfml/bin/sfml-audio-2.dll dist/
         else
           cp build/PixelRPG dist/
         fi
