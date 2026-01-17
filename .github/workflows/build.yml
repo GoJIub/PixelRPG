@@ -85,9 +85,10 @@ jobs:
         mkdir -p package/PixelRPG/lib
         ldd build/PixelRPG | awk '{print $3}' | grep '^/' | while read lib; do
           case "$lib" in
-            /lib/*|/usr/lib/x86_64-linux-gnu/libc.so*|/usr/lib/x86_64-linux-gnu/ld-linux*)
+            */ld-linux*|*/libc.so.*|*/libpthread.so.*|*/libm.so.*|*/libdl.so.*|*/librt.so.*|*/libstdc++.so.*|*/libgcc_s.so.*)
               ;;
             *)
+              echo "Copying $lib"
               cp -v "$lib" package/PixelRPG/lib/
               ;;
           esac
