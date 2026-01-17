@@ -141,16 +141,15 @@ endif()
 # ------------------------------------------------------------
 # RPATH / библиотеки рядом с бинарником (Linux/macOS)
 # ------------------------------------------------------------
-if(UNIX)
-    # Используем ORIGIN для относительного поиска
+if(UNIX AND NOT PIXELRPG_HEADLESS)
     set_target_properties(PixelRPG PROPERTIES
         BUILD_RPATH "$ORIGIN/lib"
         INSTALL_RPATH "$ORIGIN/lib"
         BUILD_WITH_INSTALL_RPATH TRUE
-        SKIP_BUILD_RPATH FALSE
-        INSTALL_RPATH_USE_LINK_PATH TRUE
     )
-
-    # Опционально: предупреждаем CMake, что используем ORIGIN
-    set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
+    
+    # Включаем “импортируемые” библиотеки
+    target_link_libraries(PixelRPG PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/lib/libstb.so.0
+    )
 endif()
